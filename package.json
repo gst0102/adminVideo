@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cloudbase/js-sdk": "^2.28.5",
+    "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.6.7",
     "dayjs": "^1.11.10",
     "echarts": "^5.5.0",

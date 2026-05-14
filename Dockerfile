@@ -1,11 +1,9 @@
-
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml* ./
 
-# 合并所有 RUN 命令：安装 pnpm → 安装依赖 → 添加缺失依赖
 RUN npm install -g pnpm && \
     if [ -f "pnpm-lock.yaml" ]; then \
       pnpm install --frozen-lockfile --prod=false && \
@@ -17,7 +15,6 @@ RUN npm install -g pnpm && \
 
 COPY . .
 
-# 构建（跳过类型检查）
 RUN if [ -f "pnpm-lock.yaml" ]; then \
       pnpm run build -- --skip-type-check; \
     else \
