@@ -1,36 +1,28 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { callFunction as tcbCallFunction, getCloudBase } from '@/utils/cloudbase'
+import * as api from '@/utils/api'
 
 const pendingRequests = new Map<string, Promise<any>>()
 
-const callCloudFunction = async (action: string, data: any = {}): Promise<any> => {
-  const cacheKey = `${action}_${JSON.stringify(data)}`
-
-  if (pendingRequests.has(cacheKey)) {
-    console.log(`[Cloud] 复用进行中的请求: ${action}`)
-    return pendingRequests.get(cacheKey)
+const callApi = async (fn: () => Promise<any>, key: string): Promise<any> => {
+  if (pendingRequests.has(key)) {
+    console.log(`[API] 复用进行中的请求: ${key}`)
+    return pendingRequests.get(key)
   }
 
   const promise = (async () => {
-    console.log(`[Cloud] 调用云函数: ${action}`, data)
-
-    const result = await tcbCallFunction('admin-api', { action, data })
-    console.log('[Cloud] 云函数响应:', result)
-
-    if (result.code === 200 || result.code === 0) {
-      return result.data || result.response_data?.resp_data || result
-    }
-
-    throw new Error(result.msg || result.message || '云函数执行失败')
+    console.log(`[API] 发起请求: ${key}`)
+    const result = await fn()
+    console.log(`[API] 请求响应: ${key}`, result)
+    return result
   })()
 
-  pendingRequests.set(cacheKey, promise)
+  pendingRequests.set(key, promise)
 
   try {
     return await promise
   } finally {
-    pendingRequests.delete(cacheKey)
+    pendingRequests.delete(key)
   }
 }
 
@@ -38,7 +30,7 @@ export const useAdminStore = defineStore('admin', () => {
   const token = ref(localStorage.getItem('admin_token') || '')
   const userInfo = ref<any>(null)
   const loading = ref(false)
-  const connectionStatus = ref<'cloud' | 'disconnected'>('disconnected')
+  const connectionStatus = ref<'connected' | 'disconnected'>('disconnected')
 
   const configCache = new Map<string, { data: any; time: number }>()
   const CACHE_TTL = 5 * 60 * 1000
@@ -70,18 +62,17 @@ export const useAdminStore = defineStore('admin', () => {
 
   const testConnection = async () => {
     try {
-      await getCloudBase()
-      await callCloudFunction('getDashboardStats')
-      connectionStatus.value = 'cloud'
-      console.log('[Store] ✓ 已连接到云函数（真实数据库模式）')
+      await api.getDashboardStats()
+      connectionStatus.value = 'connected'
+      console.log('[Store] ✓ 已连接到后端服务')
     } catch (e) {
       connectionStatus.value = 'disconnected'
-      console.log('[Store] ⚠ 未连接到云函数', e)
+      console.log('[Store] ⚠ 未连接到后端服务', e)
     }
   }
 
   const getDashboardStats = async () => {
-    return callCloudFunction('getDashboardStats')
+    return callApi(() => api.getDashboardStats(), 'dashboard')
   }
 
   const getConfig = async (type: string) => {
@@ -91,49 +82,49 @@ export const useAdminStore = defineStore('admin', () => {
       return cached.data
     }
 
-    const data = await callCloudFunction('getConfig', { type })
+    const data = await callApi(() => api.getConfig(type), `config_${type}`)
     configCache.set(type, { data, time: Date.now() })
     return data
   }
 
   const updateConfig = async (configData: any) => {
     console.log('[Store] 保存配置到数据库:', configData.type)
-    const result = await callCloudFunction('updateConfig', configData)
+    const result = await api.updateConfig(configData)
     configCache.delete(configData.type)
-    console.log('[Store] ✓ 配置已保存到云端数据库')
+    console.log('[Store] ✓ 配置已保存')
     return result
   }
 
   const getUserList = async (page = 1, pageSize = 20, keyword?: string) => {
-    return callCloudFunction('getUserList', { page, pageSize, keyword })
+    return api.getUserList(page, pageSize, keyword)
   }
 
   const getUserDetail = async (userId: string) => {
-    return callCloudFunction('getUserDetail', { userId })
+    return api.getUserDetail(userId)
   }
 
   const getWithdrawalList = async (status?: number) => {
-    return callCloudFunction('getWithdrawalList', { status })
+    return api.getWithdrawalList(status)
   }
 
   const processWithdrawal = async (recordId: string, action: 'approve' | 'reject', reason?: string) => {
-    return callCloudFunction('processWithdrawal', { recordId, action, reason })
+    return api.processWithdrawal(recordId, action, reason)
   }
 
   const getChatMessages = async (userId?: string) => {
-    return callCloudFunction('getChatMessages', { userId })
+    return api.getChatMessages(userId)
   }
 
   const sendReply = async (userId: string, content: string) => {
-    return callCloudFunction('sendReply', { userId, content })
+    return api.sendReply(userId, content)
   }
 
   const getUserGrowthStats = async (days: number = 7) => {
-    return callCloudFunction('getUserGrowthStats', { days })
+    return api.getUserGrowthStats(days)
   }
 
   const getWithdrawalStats = async (days: number = 7) => {
-    return callCloudFunction('getWithdrawalStats', { days })
+    return api.getWithdrawalStats(days)
   }
 
   return {

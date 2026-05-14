@@ -4,10 +4,10 @@
 
     <div style="background: #f8f9fa; border-radius: 12px; padding: 24px; margin-bottom: 24px; border-left: 4px solid #667eea;">
       <h2 style="color: #667eea; font-size: 20px; margin-bottom: 16px;">
-        📡 测试1：接口连通性 (Cloudbase SDK)
+        📡 测试1：接口连通性 (后端代理)
         <span :class="['status-badge', status1Class]" style="display:inline-block;padding:4px 12px;border-radius:12px;font-size:13px;font-weight:600;margin-left:8px;">{{ status1Text }}</span>
       </h2>
-      <p style="color:#666;margin-bottom:16px">通过 Cloudbase.callFunction 调用 admin-upload，无请求体大小限制</p>
+      <p style="color:#666;margin-bottom:16px">通过后端代理调用 admin-upload，无请求体大小限制</p>
       <el-button type="primary" @click="testConnection" :loading="testing1" :disabled="testing1">
         开始测试连接
       </el-button>
@@ -44,10 +44,11 @@
     <div style="background:#fffbeb;border-radius:12px;padding:24px;border-left-color:#f59e0b;border-left-style:solid;border-left-width:4px;">
       <h2 style="color:#f59e0b;font-size:20px;margin-bottom:16px">⚙️ 接口配置</h2>
       <div style="background:#fef3c7;padding:16px;border-radius:8px;font-family:monospace;font-size:14px;">
-        <strong>调用方式:</strong> Cloudbase.callFunction (SDK 直连)<br><br>
+        <strong>调用方式:</strong> 后端代理（FastAPI → 微信云函数）<br><br>
+        <strong>后端地址:</strong> http://api.lifelove.top<br><br>
+        <strong>API路径:</strong> /pc/upload<br><br>
         <strong>云函数:</strong> admin-upload<br><br>
-        <strong>环境ID:</strong> cloud1-0gnyce4y6d0e6caa<br><br>
-        <strong>优势:</strong> 无请求体大小限制，无需 HTTP 触发器
+        <strong>优势:</strong> 无请求体大小限制，统一鉴权管理
       </div>
     </div>
   </div>
@@ -55,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { callFunction as tcbCallFunction } from '@/utils/cloudbase'
+import { callUploadFunction } from '@/utils/api'
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
@@ -79,32 +80,23 @@ async function testConnection() {
   testing1.value = true
   status1Class.value = 'status-pending'
   status1Text.value = '测试中...'
-  result1.value = '正在初始化 Cloudbase SDK...\n'
+  result1.value = '正在初始化连接...\n'
 
   try {
-    result1.value += '✅ Cloudbase 初始化完成\n'
+    result1.value += '✅ 初始化完成\n'
     result1.value += '正在调用 admin-upload (action: test)...\n'
 
-    const data = await tcbCallFunction('admin-upload', {
-      action: 'test',
-      data: {}
-    })
+    const data = await callUploadFunction('test', {})
 
     result1.value += `[响应] ${JSON.stringify(data, null, 2)}\n`
 
-    if (data.code === 200) {
-      status1Class.value = 'status-success'
-      status1Text.value = '✅ 连通成功'
-      result1.value += '\n🎉 接口连通！Cloudbase.callFunction 方式正常工作。'
-    } else {
-      status1Class.value = 'status-error'
-      status1Text.value = '❌ 异常'
-      result1.value += '\n⚠️ 返回异常状态码'
-    }
+    status1Class.value = 'status-success'
+    status1Text.value = '✅ 连通成功'
+    result1.value += '\n🎉 接口连通！后端代理方式正常工作。'
   } catch (e: any) {
     status1Class.value = 'status-error'
     status1Text.value = '❌ 失败'
-    result1.value += `\n❌ 错误: ${e.message}\n\n可能原因:\n1. 匿名登录未开启\n2. 环境ID错误\n3. 网络问题`
+    result1.value += `\n❌ 错误: ${e.message}\n\n可能原因:\n1. 后端服务未启动\n2. 微信 access_token 获取失败\n3. 网络问题`
   }
 
   testing1.value = false
@@ -132,28 +124,25 @@ async function testUpload() {
       reader.readAsDataURL(selectedFile.value!)
     })
 
-    result2.value = `✅ 文件读取成功\n   文件名: ${selectedFile.value.name}\n   大小: ${(selectedFile.value.size / 1024).toFixed(2)} KB\n   Base64: ${base64Data.length} 字符 (~${(base64Data.length * 3 / 4 / 1024).toFixed(1)} KB)\n通过 Cloudbase.callFunction 上传（无大小限制）...\n`
+    result2.value = `✅ 文件读取成功\n   文件名: ${selectedFile.value.name}\n   大小: ${(selectedFile.value.size / 1024).toFixed(2)} KB\n   Base64: ${base64Data.length} 字符 (~${(base64Data.length * 3 / 4 / 1024).toFixed(1)} KB)\n通过后端代理上传（无大小限制）...\n`
 
-    const data = await tcbCallFunction('admin-upload', {
-      action: 'uploadImage',
-      data: {
-        base64Data,
-        fileName: selectedFile.value.name,
-        folder: 'banner'
-      }
+    const data = await callUploadFunction('uploadImage', {
+      base64Data,
+      fileName: selectedFile.value.name,
+      folder: 'banner'
     })
 
     result2.value += `[响应]\n${JSON.stringify(data, null, 2)}\n`
 
-    if (data.code === 200 && data.data?.success) {
+    if (data?.success) {
       status2Class.value = 'status-success'
       status2Text.value = '✅ 上传成功'
-      previewUrl.value = data.data.tempFileURL || ''
-      result2.value += `\n🎉 上传成功！无 HTTP 大小限制！\nFileID: ${data.data.fileID}\n路径: ${data.data.cloudPath}`
+      previewUrl.value = data.tempFileURL || ''
+      result2.value += `\n🎉 上传成功！无 HTTP 大小限制！\nFileID: ${data.fileID}\n路径: ${data.cloudPath}`
     } else {
       status2Class.value = 'status-error'
       status2Text.value = '❌ 失败'
-      result2.value += `\n❌ 错误: ${data.msg}`
+      result2.value += `\n❌ 错误: ${data?.msg || '未知错误'}`
     }
   } catch (e: any) {
     status2Class.value = 'status-error'

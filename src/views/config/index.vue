@@ -662,7 +662,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { useAdminStore } from '@/store'
-import { callFunction as tcbCallFunction } from '@/utils/cloudbase'
+import { callUploadFunction } from '@/utils/api'
 
 const adminStore = useAdminStore()
 const activeTab = ref('vip')
@@ -1269,29 +1269,25 @@ const handleFileSelect = async (event: Event) => {
 
     console.log('[Banner] 文件已转换为 base64，长度:', base64Data.length)
 
-    // 通过 cloudbase.callFunction 上传（无请求体大小限制）
-    const result = await tcbCallFunction('admin-upload', {
-      action: 'uploadImage',
-      data: {
-        base64Data: base64Data,
-        fileName: file.name,
-        folder: 'banner'
-      }
+    // 通过后端代理上传（无请求体大小限制）
+    const result = await callUploadFunction('uploadImage', {
+      base64Data: base64Data,
+      fileName: file.name,
+      folder: 'banner'
     })
 
-    if (result.code === 200 && result.data?.success) {
-      console.log('[Banner] ✅ 上传成功:', result.data)
+    if (result?.success) {
+      console.log('[Banner] ✅ 上传成功:', result)
 
-      // 更新当前行的 imageUrl（保存fileID，小程序端动态获取临时链接）
       if (currentUploadRow.value) {
-        currentUploadRow.value.imageUrl = result.data.fileID
-        currentUploadRow.value._tempFileURL = result.data.tempFileURL
+        currentUploadRow.value.imageUrl = result.fileID
+        currentUploadRow.value._tempFileURL = result.tempFileURL
       }
 
       ElMessage.success(`✅ 图片上传成功！已保存到云存储 banner/ 目录`)
       
     } else {
-      throw new Error(result.msg || '上传失败')
+      throw new Error(result?.msg || '上传失败')
     }
 
   } catch (error: any) {

@@ -24,7 +24,13 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      }
+    }
   },
   build: {
     target: 'es2020',
@@ -44,7 +50,6 @@ export default defineConfig({
           vue: ['vue', 'vue-router', 'pinia'],
           elementPlus: ['element-plus'],
           echarts: ['echarts'],
-          cloudbase: ['@cloudbase/js-sdk'],
           utils: ['dayjs', 'axios']
         }
       }
