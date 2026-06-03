@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { callUploadFunction } from '@/utils/api'
+import axios from 'axios'
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
@@ -86,9 +86,14 @@ async function testConnection() {
     result1.value += '✅ 初始化完成\n'
     result1.value += '正在调用 admin-upload (action: test)...\n'
 
-    const data = await callUploadFunction('test', {})
+    const response = await axios.post('/pc/call', {
+      env: 'local',
+      functionName: 'admin-upload',
+      action: 'test',
+      data: {}
+    })
 
-    result1.value += `[响应] ${JSON.stringify(data, null, 2)}\n`
+    result1.value += `[响应] ${JSON.stringify(response.data, null, 2)}\n`
 
     status1Class.value = 'status-success'
     status1Text.value = '✅ 连通成功'
@@ -126,11 +131,18 @@ async function testUpload() {
 
     result2.value = `✅ 文件读取成功\n   文件名: ${selectedFile.value.name}\n   大小: ${(selectedFile.value.size / 1024).toFixed(2)} KB\n   Base64: ${base64Data.length} 字符 (~${(base64Data.length * 3 / 4 / 1024).toFixed(1)} KB)\n通过后端代理上传（无大小限制）...\n`
 
-    const data = await callUploadFunction('uploadImage', {
-      base64Data,
-      fileName: selectedFile.value.name,
-      folder: 'banner'
+    const response = await axios.post('/pc/call', {
+      env: 'local',
+      functionName: 'admin-upload',
+      action: 'uploadImage',
+      data: {
+        base64Data,
+        fileName: selectedFile.value.name,
+        folder: 'banner'
+      }
     })
+
+    const data = response.data?.data || response.data
 
     result2.value += `[响应]\n${JSON.stringify(data, null, 2)}\n`
 

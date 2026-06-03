@@ -1,6 +1,5 @@
 <template>
   <el-container class="layout-container">
-    <!-- 侧边栏 -->
     <el-aside width="220px" class="aside">
       <div class="logo">
         <el-icon :size="28" color="#409EFF"><VideoCamera /></el-icon>
@@ -18,6 +17,16 @@
         <el-menu-item index="/dashboard">
           <el-icon><DataAnalysis /></el-icon>
           <span>数据看板</span>
+        </el-menu-item>
+
+        <el-menu-item index="/video">
+          <el-icon><VideoCamera /></el-icon>
+          <span>视频下载</span>
+        </el-menu-item>
+
+        <el-menu-item index="/anime">
+          <el-icon><VideoPlay /></el-icon>
+          <span>影视资源</span>
         </el-menu-item>
 
         <el-sub-menu index="user-manage">
@@ -58,9 +67,7 @@
       </el-menu>
     </el-aside>
 
-    <!-- 右侧内容区 -->
     <el-container>
-      <!-- 顶部导航栏 -->
       <el-header class="header">
         <div class="header-left">
           <el-breadcrumb separator="/">
@@ -89,7 +96,6 @@
         </div>
       </el-header>
 
-      <!-- 主内容区域 -->
       <el-main class="main">
         <router-view />
       </el-main>

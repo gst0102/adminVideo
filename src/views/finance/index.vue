@@ -1,205 +1,196 @@
 <template>
   <div class="finance-container">
-    <!-- 收益概览 -->
     <el-row :gutter="20">
-      <el-col :span="6" v-for="(item, index) in overviewData" :key="index">
-        <el-card shadow="hover" class="overview-card">
-          <div class="overview-content">
-            <div class="overview-icon" :style="{ background: item.color }">
-              <el-icon :size="28"><component :is="item.icon" /></el-icon>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card income-card">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon :size="36"><Coin /></el-icon>
             </div>
-            <div class="overview-info">
-              <div class="overview-value">{{ item.value }}</div>
-              <div class="overview-label">{{ item.label }}</div>
+            <div class="stat-info">
+              <div class="stat-number">¥{{ stats.total_income }}</div>
+              <div class="stat-label">总收益</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card withdrawn-card">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon :size="36"><CreditCard /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">¥{{ stats.total_withdrawn }}</div>
+              <div class="stat-label">已提现</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card balance-card">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon :size="36"><Money /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">¥{{ stats.total_balance }}</div>
+              <div class="stat-label">用户余额</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="stat-card frozen-card">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon :size="36"><Lock /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">¥{{ stats.total_frozen }}</div>
+              <div class="stat-label">冻结金额</div>
             </div>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 收益图表 -->
-    <el-card shadow="hover" style="margin-top: 20px;">
-      <template #header>
-        <span>收益趋势</span>
-      </template>
-      <div ref="chartRef" style="height: 400px;"></div>
-    </el-card>
-
-    <!-- 提现记录列表 -->
-    <el-card shadow="hover" style="margin-top: 20px;">
-      <template #header>
-        <div class="card-header">
-          <span>提现记录</span>
-          <el-radio-group v-model="statusFilter" size="small" @change="loadWithdrawals">
-            <el-radio-button label="">全部</el-radio-button>
-            <el-radio-button label="1">待处理</el-radio-button>
-            <el-radio-button label="2">已完成</el-radio-button>
-            <el-radio-button label="3">已失败</el-radio-button>
-          </el-radio-group>
-        </div>
-      </template>
-
-      <el-table v-loading="loading" :data="withdrawals" stripe border>
-        <el-table-column type="index" label="#" width="50" />
-        
-        <el-table-column prop="user_name" label="用户" width="120" />
-        
-        <el-table-column prop="amount" label="金额" width="120">
-          <template #default="{ row }">
-            <span class="amount">¥{{ parseFloat(row.amount).toFixed(2) }}</span>
+    <el-row :gutter="20" style="margin-top: 20px">
+      <el-col :span="24">
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>提现趋势</span>
+              <el-radio-group v-model="daysRange" size="small">
+                <el-radio-button :value="7">近7天</el-radio-button>
+                <el-radio-button :value="30">近30天</el-radio-button>
+                <el-radio-button :value="365">近一年</el-radio-button>
+              </el-radio-group>
+            </div>
           </template>
-        </el-table-column>
+          <div ref="chartRef" style="height: 350px"></div>
+        </el-card>
+      </el-col>
+    </el-row>
 
-        <el-table-column prop="batch_no" label="订单号" min-width="200" />
-
-        <el-table-column prop="transfer_bill_no" label="微信订单号" min-width="200" show-overflow-tooltip />
-
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag
-              :type="row.status === 2 ? 'success' : row.status === 1 ? 'warning' : 'danger'"
-              size="small"
-            >
-              {{ statusMap[row.status] }}
-            </el-tag>
+    <el-row :gutter="20" style="margin-top: 20px">
+      <el-col :span="24">
+        <el-card shadow="hover">
+          <template #header>
+            <span>最新提现记录</span>
           </template>
-        </el-table-column>
-
-        <el-table-column prop="create_time" label="申请时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
-        </el-table-column>
-
-        <el-table-column prop="fail_reason" label="备注/原因" min-width="150" show-overflow-tooltip />
-
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              v-if="row.status === 1"
-              type="success"
-              link
-              size="small"
-              @click="handleApprove(row)"
-            >
-              通过
-            </el-button>
-            <el-button
-              v-if="row.status === 1"
-              type="danger"
-              link
-              size="small"
-              @click="handleReject(row)"
-            >
-              拒绝
-            </el-button>
-            <el-button type="primary" link size="small" @click="viewDetail(row)">
-              详情
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+          <el-table :data="recentRecords" stripe size="small">
+            <el-table-column prop="nickname" label="用户" width="150" />
+            <el-table-column prop="batch_no" label="订单号" width="200" />
+            <el-table-column prop="amount" label="金额" width="120">
+              <template #default="{ row }">¥{{ parseFloat(row.amount).toFixed(2) }}</template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="statusTagMap[row.status]?.type || 'info'" size="small">
+                  {{ statusTagMap[row.status]?.label || row.status }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="申请时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column prop="completed_at" label="处理时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.completed_at) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAdminStore } from '@/store'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
+import { useAdminStore } from '@/store'
 
 const adminStore = useAdminStore()
 const chartRef = ref<HTMLElement>()
-const loading = ref(false)
-const statusFilter = ref('')
-const withdrawals = ref<any[]>([])
+const daysRange = ref(7)
+
+const stats = ref({
+  total_income: '0.00',
+  total_withdrawn: '0.00',
+  total_balance: '0.00',
+  total_frozen: '0.00'
+})
+
+const recentRecords = ref<any[]>([])
+
+const statusTagMap: Record<string, { label: string; type: 'success' | 'primary' | 'warning' | 'info' | 'danger' }> = {
+  processing: { label: '处理中', type: 'warning' },
+  success: { label: '成功', type: 'success' },
+  failed: { label: '失败', type: 'danger' }
+}
 
 let chart: echarts.ECharts | null = null
-let resizeHandler: (() => void) | null = null
-
-const overviewData = ref([
-  { label: '总提现金额', value: '¥0.00', icon: 'Money', color: '#409EFF' },
-  { label: '今日提现', value: '¥0.00', icon: 'Wallet', color: '#67C23A' },
-  { label: '成功笔数', value: '0', icon: 'CircleCheck', color: '#E6A23C' },
-  { label: '待处理', value: '0', icon: 'Clock', color: '#F56C6C' }
-])
-
-const statusMap: Record<number, string> = {
-  1: '待确认',
-  2: '成功',
-  3: '失败'
-}
 
 onMounted(async () => {
-  await loadWithdrawals()
+  await loadStats()
+  await loadRecentRecords()
   await nextTick()
   initChart()
-
-  resizeHandler = () => chart?.resize()
-  window.addEventListener('resize', resizeHandler)
 })
 
-onUnmounted(() => {
-  if (resizeHandler) {
-    window.removeEventListener('resize', resizeHandler)
-  }
-  chart?.dispose()
-  chart = null
+watch(daysRange, () => {
+  updateChart()
 })
 
-const loadWithdrawals = async () => {
-  loading.value = true
+const loadStats = async () => {
   try {
-    const status = statusFilter.value ? parseInt(statusFilter.value) : undefined
-    withdrawals.value = await adminStore.getWithdrawalList(status)
-    
-    // 更新统计数据
-    updateOverview()
-  } catch (error) {
-    console.error('加载提现列表失败:', error)
-    ElMessage.error('加载失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const updateOverview = () => {
-  let totalAmount = 0
-  let todayAmount = 0
-  let successCount = 0
-  let pendingCount = 0
-
-  withdrawals.value.forEach((w: any) => {
-    totalAmount += parseFloat(w.amount || 0)
-    
-    if (dayjs(w.create_time).isSame(dayjs(), 'day')) {
-      todayAmount += parseFloat(w.amount || 0)
+    const data = await adminStore.getDashboardStats()
+    if (data) {
+      stats.value = {
+        total_income: data.totalIncome ?? data.total_income ?? '0.00',
+        total_withdrawn: data.totalWithdrawn ?? data.total_withdrawn ?? '0.00',
+        total_balance: data.totalBalance ?? data.total_balance ?? '0.00',
+        total_frozen: data.totalFrozen ?? data.total_frozen ?? '0.00'
+      }
     }
-
-    if (w.status === 2) successCount++
-    if (w.status === 1) pendingCount++
-  })
-
-  overviewData.value[0].value = `¥${totalAmount.toFixed(2)}`
-  overviewData.value[1].value = `¥${todayAmount.toFixed(2)}`
-  overviewData.value[2].value = successCount.toString()
-  overviewData.value[3].value = pendingCount.toString()
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+  }
 }
 
-const initChart = async () => {
-  if (!chartRef.value) return
-  
-  chart = echarts.init(chartRef.value)
+const loadRecentRecords = async () => {
+  try {
+    const result = await adminStore.getWithdrawalList('success')
+    const list = Array.isArray(result) ? result : (result?.list || [])
+    recentRecords.value = list.slice(0, 10)
+  } catch (error) {
+    console.error('加载提现记录失败:', error)
+  }
+}
+
+const initChart = () => {
+  if (chartRef.value) {
+    chart = echarts.init(chartRef.value)
+    updateChart()
+  }
+}
+
+const updateChart = async () => {
+  if (!chart) return
 
   try {
-    const statsData = await adminStore.getWithdrawalStats(7)
-    const dates = statsData.dates || []
-    const amounts = statsData.amounts || []
+    const result = await adminStore.getWithdrawalStats(daysRange.value)
+    const dates = result?.dates || []
+    const amounts = result?.amounts || []
 
     chart.setOption({
       tooltip: {
         trigger: 'axis',
-        formatter: '{b}<br/>提现额: ¥{c}'
+        formatter: (params: any) => {
+          const p = params[0]
+          return `${p.axisValue}<br/>提现金额: ¥${parseFloat(p.value).toFixed(2)}`
+        }
       },
       grid: {
         left: '3%',
@@ -211,7 +202,8 @@ const initChart = async () => {
         type: 'category',
         data: dates,
         axisLabel: {
-          formatter: '¥{value}'
+          rotate: daysRange.value > 30 ? 45 : 0,
+          formatter: (value: string) => dayjs(value).format(daysRange.value > 30 ? 'MM/DD' : 'MM-DD')
         }
       },
       yAxis: {
@@ -222,83 +214,27 @@ const initChart = async () => {
       },
       series: [
         {
-          name: '提现金额',
           type: 'bar',
           data: amounts,
+          barWidth: '60%',
           itemStyle: {
+            borderRadius: [8, 8, 0, 0],
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: '#409EFF' },
-              { offset: 1, color: '#36d1dc' }
-            ]),
-            borderRadius: [4, 4, 0, 0]
-          },
-          barWidth: '60%'
+              { offset: 1, color: '#79bbff' }
+            ])
+          }
         }
       ]
     })
   } catch (error) {
-    console.error('[Finance] 加载提现统计失败:', error)
-    chart.setOption({
-      title: {
-        text: '数据加载失败，请检查云函数连接',
-        left: 'center',
-        top: 'center',
-        textStyle: { color: '#999', fontSize: 14 }
-      }
-    })
+    console.error('加载提现图表数据失败:', error)
   }
-}
-
-const handleApprove = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`确认通过 ${row.user_name} 的提现申请（¥${parseFloat(row.amount).toFixed(2)}）？`, '确认操作', {
-      confirmButtonText: '确认通过',
-      cancelButtonText: '取消',
-      type: 'success'
-    })
-
-    await adminStore.processWithdrawal(row._id, 'approve')
-    ElMessage.success('已通过提现申请')
-    await loadWithdrawals()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('操作失败:', error)
-      ElMessage.error('操作失败: ' + (error.message || '未知错误'))
-    }
-  }
-}
-
-const handleReject = async (row: any) => {
-  try {
-    const { value: reason } = await ElMessageBox.prompt(
-      `请输入拒绝 ${row.user_name} 提现申请的原因：`,
-      '拒绝提现',
-      {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        inputPattern: /.+/,
-        inputErrorMessage: '请输入拒绝原因'
-      }
-    )
-
-    await adminStore.processWithdrawal(row._id, 'reject', reason)
-    ElMessage.success('已拒绝提现申请')
-    await loadWithdrawals()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('操作失败:', error)
-      ElMessage.error('操作失败: ' + (error.message || '未知错误'))
-    }
-  }
-}
-
-const viewDetail = (row: any) => {
-  ElMessage.info('查看详情（功能开发中）')
 }
 
 const formatTime = (time: any) => {
   if (!time) return '-'
-  return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+  return dayjs(time).format('YYYY-MM-DD HH:mm')
 }
 </script>
 
@@ -307,23 +243,22 @@ const formatTime = (time: any) => {
   padding: 0;
 }
 
-.overview-card {
-  margin-bottom: 20px;
+.stat-card {
   cursor: pointer;
   transition: transform 0.3s;
 }
 
-.overview-card:hover {
+.stat-card:hover {
   transform: translateY(-4px);
 }
 
-.overview-content {
+.stat-content {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-.overview-icon {
+.stat-icon {
   width: 64px;
   height: 64px;
   border-radius: 12px;
@@ -333,26 +268,25 @@ const formatTime = (time: any) => {
   color: #fff;
 }
 
-.overview-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #333;
+.income-card .stat-icon {
+  background: linear-gradient(135deg, #409EFF, #36d1dc);
 }
 
-.overview-label {
-  font-size: 14px;
-  color: #999;
-  margin-top: 4px;
+.withdrawn-card .stat-icon {
+  background: linear-gradient(135deg, #67C23A, #4cae4c);
+}
+
+.balance-card .stat-icon {
+  background: linear-gradient(135deg, #E6A23C, #f7971e);
+}
+
+.frozen-card .stat-icon {
+  background: linear-gradient(135deg, #F56C6C, #ff6b6b);
 }
 
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.amount {
-  font-weight: bold;
-  color: #F56C6C;
 }
 </style>

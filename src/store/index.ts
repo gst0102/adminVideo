@@ -88,22 +88,26 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   const updateConfig = async (configData: any) => {
-    console.log('[Store] 保存配置到数据库:', configData.type)
+    console.log('[Store] 保存配置到后端:', configData.type)
     const result = await api.updateConfig(configData)
     configCache.delete(configData.type)
     console.log('[Store] ✓ 配置已保存')
     return result
   }
 
-  const getUserList = async (page = 1, pageSize = 20, keyword?: string) => {
-    return api.getUserList(page, pageSize, keyword)
+  const getUserList = async (page = 1, pageSize = 20, keyword?: string, isVip?: boolean) => {
+    return api.getUserList(page, pageSize, keyword, isVip)
   }
 
   const getUserDetail = async (userId: string) => {
     return api.getUserDetail(userId)
   }
 
-  const getWithdrawalList = async (status?: number) => {
+  const updateUserVip = async (userId: string, payload: { is_vip: boolean; vip_expire_at: string | null }) => {
+    return api.updateUserVip(userId, payload)
+  }
+
+  const getWithdrawalList = async (status?: string) => {
     return api.getWithdrawalList(status)
   }
 
@@ -127,6 +131,36 @@ export const useAdminStore = defineStore('admin', () => {
     return api.getWithdrawalStats(days)
   }
 
+  const getVideoInfo = async (url: string, userId: string, formatPreset: string = 'fast') => {
+    return api.getVideoInfo(url, userId, formatPreset)
+  }
+
+  const getVideoDownloadUrl = (userId: string, url: string, formatPreset: string = 'fast') => {
+    return api.getVideoDownloadUrl(userId, url, formatPreset)
+  }
+
+  const downloadVideoWithProgress = async (
+    url: string,
+    userId: string,
+    formatPreset: string = 'fast',
+    onProgress?: (event: api.VideoProgressEvent) => void
+  ) => {
+    return api.downloadVideoWithProgress(url, userId, formatPreset, onProgress)
+  }
+
+  const getAnimeResources = async (
+    type: string = 'movie',
+    keyword?: string,
+    page: number = 1,
+    pageSize: number = 100
+  ) => {
+    return api.getAnimeResources(type, keyword, page, pageSize)
+  }
+
+  const syncAnime = async (type: string = 'anime') => {
+    return api.syncAnime(type)
+  }
+
   return {
     token,
     userInfo,
@@ -140,11 +174,17 @@ export const useAdminStore = defineStore('admin', () => {
     updateConfig,
     getUserList,
     getUserDetail,
+    updateUserVip,
     getWithdrawalList,
     processWithdrawal,
     getChatMessages,
     sendReply,
     getUserGrowthStats,
-    getWithdrawalStats
+    getWithdrawalStats,
+    getVideoInfo,
+    getVideoDownloadUrl,
+    downloadVideoWithProgress,
+    getAnimeResources,
+    syncAnime
   }
 })

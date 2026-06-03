@@ -1,332 +1,222 @@
 <template>
   <div class="withdrawals-container">
-    <!-- 筛选栏 -->
-    <el-card shadow="hover" class="filter-card">
-      <el-form :inline="true" :model="filterForm">
-        <el-form-item label="状态">
-          <el-select v-model="filterForm.status" placeholder="全部" clearable>
-            <el-option label="待处理" :value="1" />
-            <el-option label="已完成" :value="2" />
-            <el-option label="已失败" :value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="用户">
-          <el-input v-model="filterForm.keyword" placeholder="昵称/订单号" clearable />
-        </el-form-item>
-        <el-form-item label="日期范围">
-          <el-date-picker
-            v-model="filterForm.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button icon="Refresh" @click="handleReset">重置</el-button>
-          <el-button type="success" icon="Download" @click="exportData">导出</el-button>
-        </el-form-item>
-      </el-form>
+    <el-card shadow="hover" class="search-card">
+      <el-row :gutter="20" align="middle">
+        <el-col :span="10">
+          <el-radio-group v-model="statusFilter" size="large" @change="handleFilterChange">
+            <el-radio-button value="">全部</el-radio-button>
+            <el-radio-button value="processing">处理中</el-radio-button>
+            <el-radio-button value="success">已到账</el-radio-button>
+            <el-radio-button value="failed">失败</el-radio-button>
+          </el-radio-group>
+        </el-col>
+        <el-col :span="8">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索用户昵称或批次单号"
+            clearable
+            @keyup.enter="loadWithdrawals"
+            @clear="loadWithdrawals"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-col>
+        <el-col :span="6" style="text-align: right">
+          <el-button type="primary" @click="loadWithdrawals">刷新</el-button>
+        </el-col>
+      </el-row>
     </el-card>
 
-    <!-- 数据统计 -->
-    <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col :span="6" v-for="(item, index) in statCards" :key="index">
-        <div class="stat-card" :style="{ borderTopColor: item.color }">
-          <div class="stat-value">{{ item.value }}</div>
-          <div class="stat-label">{{ item.label }}</div>
-        </div>
-      </el-col>
-    </el-row>
-
-    <!-- 提现列表 -->
-    <el-card shadow="hover" style="margin-top: 20px;">
+    <el-card shadow="hover" style="margin-top: 20px">
       <template #header>
-        <span>提现记录列表</span>
+        <div class="card-header">
+          <span>提现列表</span>
+          <span class="total-text">共 {{ pagination.total }} 条</span>
+        </div>
       </template>
 
-      <el-table
-        v-loading="loading"
-        :data="list"
-        stripe
-        border
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="50" />
-
-        <el-table-column prop="user_name" label="用户" width="120" fixed="left">
+      <el-table v-loading="loading" :data="withdrawalList" stripe border>
+        <el-table-column type="index" label="#" width="50" />
+        <el-table-column label="用户" width="180">
           <template #default="{ row }">
-            <el-link type="primary">{{ row.user_name || '未知' }}</el-link>
+            <div class="user-info">
+              <el-avatar :size="32" :src="row.avatar">{{ (row.nickname || 'U').charAt(0) }}</el-avatar>
+              <span>{{ row.nickname || '未知用户' }}</span>
+            </div>
           </template>
         </el-table-column>
-
-        <el-table-column prop="amount" label="提现金额" width="120">
+        <el-table-column prop="batch_no" label="商户批次单号" width="220" show-overflow-tooltip />
+        <el-table-column prop="transfer_bill_no" label="微信转账单号" width="220" show-overflow-tooltip />
+        <el-table-column prop="amount" label="金额" width="110" align="center">
           <template #default="{ row }">
-            <span class="amount">¥{{ parseFloat(row.amount).toFixed(2) }}</span>
+            <span class="money">¥{{ Number(row.amount || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
-
-        <el-table-column prop="batch_no" label="商户订单号" min-width="220" show-overflow-tooltip />
-
-        <el-table-column prop="transfer_bill_no" label="微信转账单号" min-width="200" show-overflow-tooltip />
-
-        <el-table-column prop="status" label="状态" width="100" align="center">
+        <el-table-column prop="status" label="状态" width="120" align="center">
           <template #default="{ row }">
-            <el-tag
-              :type="statusTagMap[row.status]?.type || 'info'"
-              effect="dark"
-              size="small"
-            >
-              {{ statusTagMap[row.status]?.label || '未知' }}
+            <el-tag :type="statusTagMap[row.status]?.type || 'info'">
+              {{ getStatusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
-
-        <el-table-column prop="ip" label="IP地址" width="140" />
-
-        <el-table-column prop="create_time" label="申请时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+        <el-table-column prop="created_at" label="申请时间" width="180">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
-
-        <el-table-column prop="callback_time" label="回调时间" width="180">
-          <template #default="{ row }">
-            {{ row.callback_time ? formatTime(row.callback_time) : '-' }}
-          </template>
+        <el-table-column prop="completed_at" label="完成时间" width="180">
+          <template #default="{ row }">{{ formatTime(row.completed_at) }}</template>
         </el-table-column>
-
-        <el-table-column prop="fail_reason" label="备注/失败原因" min-width="150" show-overflow-tooltip />
-
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="fail_reason" label="失败原因" min-width="180" show-overflow-tooltip />
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <template v-if="row.status === 1">
-              <el-button type="success" link size="small" @click="handleApprove(row)">
-                通过
-              </el-button>
-              <el-button type="danger" link size="small" @click="handleReject(row)">
-                拒绝
-              </el-button>
+            <template v-if="row.status === 'processing' && !row.transfer_bill_no">
+              <el-button type="success" link size="small" @click="handleApprove(row)">提交转账</el-button>
+              <el-button type="danger" link size="small" @click="handleReject(row)">驳回</el-button>
             </template>
-            <template v-else-if="row.status === 2">
-              <el-button type="primary" link size="small" @click="viewDetail(row)">
-                查看
-              </el-button>
+            <template v-else-if="row.status === 'processing' && row.transfer_bill_no">
+              <el-tag type="warning" size="small">等待回调</el-tag>
             </template>
             <template v-else>
-              <el-button type="warning" link size="small" @click="handleRetry(row)">
-                重试
-              </el-button>
+              <el-tag size="small" :type="row.status === 'success' ? 'success' : 'danger'">
+                {{ row.status === 'success' ? '已完成' : '已结束' }}
+              </el-tag>
             </template>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 批量操作栏 -->
-      <div class="batch-actions" v-if="selectedList.length > 0">
-        <span>已选择 {{ selectedList.length }} 项</span>
-        <el-button type="success" size="small" @click="batchApprove">批量通过</el-button>
-        <el-button type="danger" size="small" @click="batchReject">批量拒绝</el-button>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          :page-size="pagination.pageSize"
+          :total="pagination.total"
+          layout="total, prev, pager, next, jumper"
+          @current-change="loadWithdrawals"
+        />
       </div>
     </el-card>
+
+    <el-dialog v-model="dialogVisible" :title="dialogMode === 'approve' ? '提交商家转账' : '驳回提现'" width="500px">
+      <template v-if="dialogMode === 'approve'">
+        <p>确认向该用户发起微信提现？</p>
+        <p class="approve-detail">
+          用户：<strong>{{ activeRow?.nickname || '未知用户' }}</strong><br />
+          金额：<strong class="money">¥{{ Number(activeRow?.amount || 0).toFixed(2) }}</strong><br />
+          批次单号：<strong>{{ activeRow?.batch_no }}</strong>
+        </p>
+        <p class="helper-text">提交后状态会保持为处理中，直到微信回调成功或失败。</p>
+      </template>
+      <template v-else>
+        <el-input v-model="rejectReason" type="textarea" :rows="4" placeholder="请输入驳回原因" />
+      </template>
+
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button :type="dialogMode === 'approve' ? 'success' : 'danger'" @click="submitReview">
+          确认
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAdminStore } from '@/store'
+import { computed, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import { Search } from '@element-plus/icons-vue'
+import { useAdminStore } from '@/store'
 
 const adminStore = useAdminStore()
-
 const loading = ref(false)
-const list = ref<any[]>([])
-const selectedList = ref<any[]>([])
+const statusFilter = ref('')
+const searchKeyword = ref('')
+const dialogVisible = ref(false)
+const dialogMode = ref<'approve' | 'reject'>('approve')
+const rejectReason = ref('')
+const activeRow = ref<any | null>(null)
 
-const filterForm = reactive({
-  status: undefined as number | undefined,
-  keyword: '',
-  dateRange: [] as string[]
-})
+const allRows = ref<any[]>([])
+const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
-const statCards = ref([
-  { label: '总申请数', value: '0', color: '#409EFF' },
-  { label: '总金额', value: '¥0.00', color: '#67C23A' },
-  { label: '成功笔数', value: '0', color: '#E6A23C' },
-  { label: '待处理', value: '0', color: '#F56C6C' }
-])
-
-const statusTagMap: Record<number, { label: string; type: string }> = {
-  1: { label: '待确认', type: 'warning' },
-  2: { label: '成功', type: 'success' },
-  3: { label: '失败', type: 'danger' }
+const statusTagMap: Record<string, { label: string; type: 'success' | 'primary' | 'warning' | 'info' | 'danger' }> = {
+  processing: { label: '处理中', type: 'warning' },
+  success: { label: '已到账', type: 'success' },
+  failed: { label: '失败', type: 'danger' },
 }
 
-onMounted(() => {
-  loadData()
+const withdrawalList = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  const filtered = keyword
+    ? allRows.value.filter((item) =>
+        [item.nickname, item.batch_no, item.transfer_bill_no]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(keyword)),
+      )
+    : allRows.value
+
+  pagination.total = filtered.length
+  const start = (pagination.page - 1) * pagination.pageSize
+  return filtered.slice(start, start + pagination.pageSize)
 })
 
-const loadData = async () => {
+const loadWithdrawals = async () => {
   loading.value = true
   try {
-    const status = filterForm.status !== undefined ? filterForm.status : undefined
-    list.value = await adminStore.getWithdrawalList(status)
-    
-    // 更新统计数据
-    updateStats()
-  } catch (error) {
-    console.error('加载数据失败:', error)
-    ElMessage.error('加载失败')
+    const result = await adminStore.getWithdrawalList(statusFilter.value || undefined)
+    allRows.value = Array.isArray(result) ? result : result?.list || []
+  } catch (error: any) {
+    ElMessage.error(error.message || '加载失败')
   } finally {
     loading.value = false
   }
 }
 
-const updateStats = () => {
-  let total = list.value.length
-  let totalAmount = 0
-  let successCount = 0
-  let pendingCount = 0
-
-  list.value.forEach((item: any) => {
-    totalAmount += parseFloat(item.amount || 0)
-    if (item.status === 2) successCount++
-    if (item.status === 1) pendingCount++
-  })
-
-  statCards.value[0].value = total.toString()
-  statCards.value[1].value = `¥${totalAmount.toFixed(2)}`
-  statCards.value[2].value = successCount.toString()
-  statCards.value[3].value = pendingCount.toString()
+const handleFilterChange = () => {
+  pagination.page = 1
+  loadWithdrawals()
 }
 
-const handleSearch = () => {
-  // 实际应该根据筛选条件查询，这里简化处理
-  loadData()
+const handleApprove = (row: any) => {
+  activeRow.value = row
+  dialogMode.value = 'approve'
+  rejectReason.value = ''
+  dialogVisible.value = true
 }
 
-const handleReset = () => {
-  filterForm.status = undefined
-  filterForm.keyword = ''
-  filterForm.dateRange = []
-  loadData()
+const handleReject = (row: any) => {
+  activeRow.value = row
+  dialogMode.value = 'reject'
+  rejectReason.value = ''
+  dialogVisible.value = true
 }
 
-const exportData = () => {
-  ElMessage.info('导出功能开发中')
-}
-
-const handleSelectionChange = (selection: any[]) => {
-  selectedList.value = selection
-}
-
-const handleApprove = async (row: any) => {
+const submitReview = async () => {
+  if (!activeRow.value) return
   try {
-    await ElMessageBox.confirm(
-      `确认通过用户 "${row.user_name}" 的提现申请？\n金额：¥${parseFloat(row.amount).toFixed(2)}`,
-      '确认通过',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'success' }
-    )
-
-    await adminStore.processWithdrawal(row._id, 'approve')
-    ElMessage.success('已通过提现申请')
-    await loadData()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('操作失败:', error)
-      ElMessage.error('操作失败: ' + (error.message || '未知错误'))
+    if (dialogMode.value === 'approve') {
+      await adminStore.processWithdrawal(activeRow.value.id, 'approve')
+      ElMessage.success('已提交转账，等待微信回调')
+    } else {
+      await adminStore.processWithdrawal(activeRow.value.id, 'reject', rejectReason.value || 'admin_rejected')
+      ElMessage.success('已驳回该提现申请')
     }
+    dialogVisible.value = false
+    await loadWithdrawals()
+  } catch (error: any) {
+    ElMessage.error(error.message || '操作失败')
   }
 }
 
-const handleReject = async (row: any) => {
-  try {
-    const { value: reason } = await ElMessageBox.prompt(
-      '请输入拒绝原因：',
-      '拒绝提现',
-      {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        inputPattern: /.+/,
-        inputErrorMessage: '请输入原因'
-      }
-    )
-
-    await adminStore.processWithdrawal(row._id, 'reject', reason)
-    ElMessage.success('已拒绝提现申请')
-    await loadData()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('操作失败:', error)
-      ElMessage.error('操作失败: ' + (error.message || '未知错误'))
-    }
-  }
+const getStatusLabel = (row: any) => {
+  if (row.status === 'processing' && row.transfer_bill_no) return '等待回调'
+  return statusTagMap[row.status]?.label || row.status
 }
 
-const handleRetry = async (row: any) => {
-  ElMessage.info(`重试提现（功能开发中）`)
-}
+const formatTime = (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-')
 
-const batchApprove = async () => {
-  try {
-    await ElMessageBox.confirm(
-      `确认批量通过 ${selectedList.value.length} 条提现申请？`,
-      '批量操作',
-      { type: 'warning' }
-    )
-
-    for (const row of selectedList.value) {
-      await adminStore.processWithdrawal(row._id, 'approve')
-    }
-
-    ElMessage.success(`已批量通过 ${selectedList.value.length} 条提现申请`)
-    selectedList.value = []
-    await loadData()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('操作失败:', error)
-      ElMessage.error('批量操作失败: ' + (error.message || '未知错误'))
-    }
-  }
-}
-
-const batchReject = async () => {
-  try {
-    const { value: reason } = await ElMessageBox.prompt(
-      `请输入批量拒绝 ${selectedList.value.length} 条申请的原因：`,
-      '批量拒绝',
-      {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        inputPattern: /.+/,
-        inputErrorMessage: '请输入原因'
-      }
-    )
-
-    for (const row of selectedList.value) {
-      await adminStore.processWithdrawal(row._id, 'reject', reason)
-    }
-
-    ElMessage.success(`已批量拒绝 ${selectedList.value.length} 条提现申请`)
-    selectedList.value = []
-    await loadData()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('操作失败:', error)
-      ElMessage.error('批量操作失败: ' + (error.message || '未知错误'))
-    }
-  }
-}
-
-const viewDetail = (row: any) => {
-  ElMessage.info(`查看详情：${row.batch_no}`)
-}
-
-const formatTime = (time: any) => {
-  if (!time) return '-'
-  return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
-}
+loadWithdrawals()
 </script>
 
 <style scoped>
@@ -334,44 +224,45 @@ const formatTime = (time: any) => {
   padding: 0;
 }
 
-.filter-card .el-form-item {
-  margin-bottom: 0;
-}
-
-.stat-card {
-  padding: 24px;
-  background: #fff;
-  border-radius: 8px;
-  border-top: 4px solid #409EFF;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #999;
-}
-
-.amount {
-  font-weight: bold;
-  color: #F56C6C;
-  font-size: 15px;
-}
-
-.batch-actions {
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
+.card-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+}
+
+.total-text {
+  color: #999;
+  font-size: 14px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.money {
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.approve-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  color: #666;
+  line-height: 1.8;
+}
+
+.helper-text {
+  color: #999;
+  font-size: 13px;
+}
+
+.pagination-wrapper {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

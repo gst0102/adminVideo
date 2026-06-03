@@ -1,146 +1,98 @@
 <template>
   <div class="chat-container">
-    <el-row :gutter="20">
-      <!-- 左侧：用户列表 -->
-      <el-col :span="8">
-        <el-card shadow="hover" class="user-list-card">
+    <el-row :gutter="20" style="height: 100%">
+      <el-col :span="6">
+        <el-card shadow="hover" class="left-panel">
           <template #header>
-            <div class="card-header">
-              <span>咨询用户</span>
-              <el-badge :value="unreadCount" :hidden="unreadCount === 0" type="danger">
-                <span></span>
-              </el-badge>
+            <div class="panel-header">
+              <span>用户消息列表</span>
+              <el-badge :value="unreadCount" :max="99" />
             </div>
           </template>
 
-          <!-- 搜索 -->
           <el-input
-            v-model="searchKeyword"
+            v-model="searchText"
             placeholder="搜索用户..."
-            prefix-icon="Search"
             clearable
-            style="margin-bottom: 16px;"
-          />
+            size="small"
+            style="margin-bottom: 12px"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
 
-          <!-- 用户列表 -->
           <div class="user-list">
             <div
               v-for="user in filteredUsers"
               :key="user.user_id"
-              class="user-item"
-              :class="{ active: currentUser?.user_id === user.user_id }"
+              :class="['user-item', { active: currentUserId === user.user_id }]"
               @click="selectUser(user)"
             >
               <div class="user-avatar">
-                <el-avatar :size="40">{{ (user.user_name || '用').charAt(0) }}</el-avatar>
-                <div class="online-dot" v-if="!user.last_read"></div>
+                <el-badge :is-dot="user.unread_count > 0">
+                  <el-avatar :size="40">{{ user.nickname?.charAt(0) || '用' }}</el-avatar>
+                </el-badge>
               </div>
-              <div class="user-info">
-                <div class="user-name">{{ user.user_name || '未知用户' }}</div>
-                <div class="last-message">{{ user.last_message || '暂无消息' }}</div>
+              <div class="user-text">
+                <div class="user-name">{{ user.nickname || user.user_name || '用户' }}</div>
+                <div class="user-last-msg">{{ user.last_message || '暂无消息' }}</div>
               </div>
-              <div class="user-time">{{ formatTime(user.last_time) }}</div>
+              <div class="user-time">{{ formatTimeShort(user.last_time) }}</div>
             </div>
 
-            <el-empty v-if="filteredUsers.length === 0" description="暂无聊天记录" />
+            <el-empty v-if="filteredUsers.length === 0" description="暂无消息" />
           </div>
         </el-card>
       </el-col>
 
-      <!-- 右侧：聊天窗口 -->
-      <el-col :span="16">
-        <el-card shadow="hover" class="chat-window">
-          <template #header v-if="currentUser">
-            <div class="chat-header">
-              <div class="chat-user-info">
-                <el-avatar :size="32">{{ (currentUser.user_name || '用').charAt(0) }}</el-avatar>
-                <div>
-                  <div class="chat-user-name">{{ currentUser.user_name || '未知用户' }}</div>
-                  <div class="chat-user-id">ID: {{ currentUser.user_id?.substring(0, 10) }}...</div>
-                </div>
-              </div>
-              <div class="chat-actions">
-                <el-button size="small" icon="View" @click="viewUserProfile">查看资料</el-button>
-              </div>
+      <el-col :span="18">
+        <el-card shadow="hover" class="right-panel">
+          <template #header>
+            <div class="panel-header">
+              <span>{{ currentUser?.nickname || currentUser?.user_name || '选择用户' }}</span>
+              <span v-if="currentUser" class="user-id">ID: {{ currentUser.user_id }}</span>
             </div>
           </template>
 
-          <template #default>
-            <div v-if="currentUser" class="chat-content">
-              <!-- 消息列表 -->
-              <div ref="messageListRef" class="message-list">
+          <div v-if="!currentUser" class="no-select">
+            <el-empty description="请选择左侧用户查看聊天" />
+          </div>
+
+          <div v-else class="chat-area">
+            <div class="message-list" ref="messageListRef">
+              <div
+                v-for="msg in messages"
+                :key="msg.id"
+                :class="['message-item', msg.sender === 'admin' ? 'message-right' : 'message-left']"
+              >
                 <div
-                  v-for="(msg, index) in messages"
-                  :key="index"
-                  class="message-item"
-                  :class="msg.sender"
+                  :class="['message-bubble', msg.sender === 'admin' ? 'bubble-admin' : 'bubble-user']"
                 >
-                  <div class="avatar-wrapper">
-                    <el-avatar
-                      :size="36"
-                      :class="msg.sender === 'admin' ? 'admin-avatar' : 'user-avatar'"
-                    >
-                      {{ msg.sender === 'admin' ? '客' : (msg.sender_name || '用').charAt(0) }}
-                    </el-avatar>
-                  </div>
-                  <div class="message-body">
-                    <div class="sender-name">
-                      {{ msg.sender === 'admin' ? '客服小助手' : (msg.sender_name || '用户') }}
-                    </div>
-                    <div class="message-bubble">
-                      {{ msg.content }}
-                    </div>
-                    <div class="message-time">{{ formatTime(msg.created_at) }}</div>
-                  </div>
-                </div>
-
-                <div v-if="messages.length === 0" class="empty-chat">
-                  <el-empty description="暂无消息，开始对话吧！" />
+                  <div class="msg-content">{{ msg.content }}</div>
+                  <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
                 </div>
               </div>
+              <el-empty v-if="messages.length === 0" description="暂无聊天记录" />
+            </div>
 
-              <!-- 输入框 -->
-              <div class="input-area">
-                <el-input
-                  v-model="inputMessage"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="输入回复内容..."
-                  :maxlength="1000"
-                  show-word-limit
-                  @keyup.enter.ctrl.exact="sendMessage"
-                />
-                <div class="input-actions">
-                  <el-dropdown trigger="click" @command="insertQuickReply">
-                    <el-button size="small">快捷回复</el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item
-                          v-for="(reply, index) in quickReplies"
-                          :key="index"
-                          :command="reply"
-                        >
-                          {{ reply.substring(0, 15) }}{{ reply.length > 15 ? '...' : '' }}
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                  <el-button
-                    type="primary"
-                    :disabled="!inputMessage.trim()"
-                    :loading="sending"
-                    @click="sendMessage"
-                  >
-                    发送
-                  </el-button>
-                </div>
+            <div class="input-area">
+              <el-input
+                v-model="inputText"
+                type="textarea"
+                :rows="3"
+                placeholder="输入回复内容..."
+                resize="none"
+                @keydown.enter.ctrl="handleSend"
+              />
+              <div class="input-actions">
+                <span class="input-hint">Ctrl + Enter 发送</span>
+                <el-button type="primary" @click="handleSend" :loading="sending">
+                  发送
+                </el-button>
               </div>
             </div>
-
-            <div v-else class="no-chat-selected">
-              <el-empty description="请从左侧选择一个用户开始对话" />
-            </div>
-          </template>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -148,108 +100,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useAdminStore } from '@/store'
 import dayjs from 'dayjs'
+import { useAdminStore } from '@/store'
 
 const adminStore = useAdminStore()
 
-const searchKeyword = ref('')
+const searchText = ref('')
+const inputText = ref('')
+const sending = ref(false)
+const currentUserId = ref('')
 const currentUser = ref<any>(null)
 const messages = ref<any[]>([])
-const inputMessage = ref('')
-const sending = ref(false)
+const userList = ref<any[]>([])
 const messageListRef = ref<HTMLElement>()
 
-const userList = ref<any[]>([])
-const unreadCount = ref(0)
-
-const quickReplies = [
-  '您好，请问有什么可以帮您的？',
-  '关于会员问题，您可以查看会员权益说明。',
-  '提现问题一般1-3个工作日到账，如有异常请联系我们。',
-  '感谢您的反馈，我们会尽快处理！',
-  '抱歉让您久等了，我马上为您查询。'
-]
-
-// 过滤后的用户列表
 const filteredUsers = computed(() => {
-  if (!searchKeyword.value) return userList.value
-  
-  const keyword = searchKeyword.value.toLowerCase()
-  return userList.value.filter(user =>
-    user.user_name?.toLowerCase().includes(keyword) ||
-    user.user_id?.toLowerCase().includes(keyword)
+  if (!searchText.value) return userList.value
+  const kw = searchText.value.toLowerCase()
+  return userList.value.filter(
+    (u: any) => (u.nickname || u.user_name || '').toLowerCase().includes(kw)
   )
 })
 
-onMounted(async () => {
-  await loadChatUsers()
+const unreadCount = computed(() => {
+  return userList.value.reduce((sum, u: any) => sum + (u.unread_count || 0), 0)
 })
 
-// 加载有聊天的用户列表
-const loadChatUsers = async () => {
+onMounted(async () => {
+  await loadUserList()
+})
+
+const loadUserList = async () => {
   try {
-    const allMessages = await adminStore.getChatMessages()
-    
-    // 按用户分组
-    const userMap = new Map<string, any>()
-    
-    allMessages.forEach((msg: any) => {
-      if (!userMap.has(msg.user_id)) {
-        userMap.set(msg.user_id, {
-          user_id: msg.user_id,
-          user_name: msg.user_name,
-          last_message: msg.content,
-          last_time: msg.created_at,
-          last_read: msg.is_read,
-          unread_count: 0
-        })
-      }
-      
-      const user = userMap.get(msg.user_id)!
-      
-      // 更新最新消息
-      if (new Date(msg.created_at) > new Date(user.last_time)) {
-        user.last_message = msg.content
-        user.last_time = msg.created_at
-      }
-      
-      // 统计未读
-      if (!msg.is_read && msg.sender === 'user') {
-        user.unread_count++
-      }
-    })
-    
-    userList.value = Array.from(userMap.values())
-      .sort((a, b) => new Date(b.last_time).getTime() - new Date(a.last_time).getTime())
-    
-    // 计算总未读数
-    unreadCount.value = userList.value.reduce((sum, u) => sum + u.unread_count, 0)
+    const result = await adminStore.getChatMessages()
+    const list = Array.isArray(result) ? result : (result?.list || [])
+    userList.value = list
   } catch (error) {
-    console.error('加载用户列表失败:', error)
+    console.error('加载消息列表失败:', error)
   }
 }
 
-// 选择用户
 const selectUser = async (user: any) => {
+  currentUserId.value = user.user_id
   currentUser.value = user
-  
-  // 标记为已读
-  user.unread_count = 0
-  user.last_read = true
-  unreadCount.value = Math.max(0, unreadCount.value - 1)
-  
-  // 加载该用户的聊天记录
-  await loadMessages(user.user_id)
-}
 
-// 加载消息
-const loadMessages = async (userId: string) => {
   try {
-    messages.value = await adminStore.getChatMessages(userId)
-    
+    const result = await adminStore.getChatMessages(user.user_id)
+    const list = Array.isArray(result) ? result : (result?.messages || [])
+    messages.value = list.sort((a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+
     await nextTick()
     scrollToBottom()
   } catch (error) {
@@ -257,102 +160,89 @@ const loadMessages = async (userId: string) => {
   }
 }
 
-// 发送消息
-const sendMessage = async () => {
-  const content = inputMessage.value.trim()
-  if (!content || !currentUser.value) return
+const handleSend = async () => {
+  if (!inputText.value.trim() || !currentUserId.value) return
 
   sending.value = true
   try {
-    // 先在界面显示（乐观更新）
+    await adminStore.sendReply(currentUserId.value, inputText.value.trim())
+    ElMessage.success('发送成功')
+
     messages.value.push({
+      id: Date.now().toString(),
+      user_id: currentUserId.value,
       sender: 'admin',
-      sender_name: '客服小助手',
-      content,
-      created_at: new Date(),
-      is_read: false
+      content: inputText.value.trim(),
+      created_at: new Date().toISOString()
     })
 
-    inputMessage.value = ''
+    inputText.value = ''
+
+    await nextTick()
     scrollToBottom()
-
-    // 发送到数据库
-    await adminStore.sendReply(currentUser.value.user_id, content)
-
-    // 更新用户列表的最后消息
-    const user = userList.value.find(u => u.user_id === currentUser.value.user_id)
-    if (user) {
-      user.last_message = content
-      user.last_time = new Date()
-    }
-  } catch (error) {
-    console.error('发送失败:', error)
-    ElMessage.error('发送失败')
-    // 移除临时消息
-    messages.value.pop()
+  } catch (error: any) {
+    ElMessage.error('发送失败: ' + (error.message || '未知错误'))
   } finally {
     sending.value = false
   }
 }
 
-// 插入快捷回复
-const insertQuickReply = (reply: string) => {
-  inputMessage.value += (inputMessage.value ? '\n' : '') + reply
-}
-
-// 查看用户资料
-const viewUserProfile = () => {
-  if (currentUser.value) {
-    ElMessage.info(`查看用户 ${currentUser.value.user_name} 的详细资料`)
+const scrollToBottom = () => {
+  if (messageListRef.value) {
+    messageListRef.value.scrollTop = messageListRef.value.scrollHeight
   }
 }
 
-// 滚动到底部
-const scrollToBottom = () => {
-  setTimeout(() => {
-    if (messageListRef.value) {
-      messageListRef.value.scrollTop = messageListRef.value.scrollHeight
-    }
-  }, 100)
-}
-
-// 格式化时间
 const formatTime = (time: any) => {
   if (!time) return ''
-  
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  
-  // 小于1分钟
-  if (diff < 60000) return '刚刚'
-  // 小于1小时
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  // 小于24小时
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  // 小于7天
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
-  
-  return dayjs(date).format('MM-DD HH:mm')
+  return dayjs(time).format('MM-DD HH:mm')
+}
+
+const formatTimeShort = (time: any) => {
+  if (!time) return ''
+  const d = dayjs(time)
+  const now = dayjs()
+  if (d.isSame(now, 'day')) return d.format('HH:mm')
+  if (d.isSame(now, 'year')) return d.format('MM-DD')
+  return d.format('YYYY-MM-DD')
 }
 </script>
 
 <style scoped>
 .chat-container {
+  height: calc(100vh - 140px);
   padding: 0;
-  height: calc(100vh - 120px);
 }
 
-.user-list-card {
+.chat-container .el-row {
+  height: 100%;
+}
+
+.left-panel,
+.right-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.card-header {
+.left-panel :deep(.el-card__body),
+.right-panel :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.user-id {
+  font-size: 12px;
+  color: #999;
 }
 
 .user-list {
@@ -365,9 +255,9 @@ const formatTime = (time: any) => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  cursor: pointer;
   border-radius: 8px;
-  transition: background-color 0.3s;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .user-item:hover {
@@ -375,26 +265,10 @@ const formatTime = (time: any) => {
 }
 
 .user-item.active {
-  background-color: #e6f7ff;
+  background-color: #ecf5ff;
 }
 
-.user-avatar {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.online-dot {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: #67C23A;
-  border: 2px solid #fff;
-}
-
-.user-info {
+.user-text {
   flex: 1;
   min-width: 0;
 }
@@ -403,160 +277,99 @@ const formatTime = (time: any) => {
   font-size: 14px;
   font-weight: bold;
   color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.last-message {
+.user-last-msg {
   font-size: 12px;
   color: #999;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 4px;
 }
 
 .user-time {
-  font-size: 12px;
+  font-size: 11px;
   color: #ccc;
-  flex-shrink: 0;
 }
 
-/* 聊天窗口 */
-.chat-window {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-header {
+.no-select {
+  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 }
 
-.chat-user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.chat-user-name {
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.chat-user-id {
-  font-size: 12px;
-  color: #999;
-}
-
-.chat-content {
+.chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100% - 120px);
+  overflow: hidden;
 }
 
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-  background: #f5f7fa;
+  padding: 8px 0;
 }
 
 .message-item {
   display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
-.message-item.admin {
-  flex-direction: row-reverse;
+.message-left {
+  justify-content: flex-start;
 }
 
-.avatar-wrapper {
-  flex-shrink: 0;
-}
-
-.admin-avatar {
-  background: linear-gradient(135deg, #409EFF 0%, #36d1dc 100%);
-  color: #fff;
-}
-
-.user-avatar {
-  background: linear-gradient(135deg, #67C23A 0%, #4cae4c 100%);
-  color: #fff;
-}
-
-.message-body {
-  max-width: 70%;
-}
-
-.message-item .message-body {
-  align-items: flex-start;
-}
-
-.message-item.admin .message-body {
-  align-items: flex-end;
-}
-
-.sender-name {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 4px;
-}
-
-.message-item.admin .sender-name {
-  text-align: right;
+.message-right {
+  justify-content: flex-end;
 }
 
 .message-bubble {
+  max-width: 60%;
   padding: 12px 16px;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  word-break: break-all;
-  line-height: 1.6;
-  font-size: 14px;
+  border-radius: 12px;
 }
 
-.message-item.admin .message-bubble {
-  background: #409EFF;
+.bubble-user {
+  background-color: #f0f2f5;
+  border-top-left-radius: 4px;
+}
+
+.bubble-admin {
+  background-color: #409EFF;
   color: #fff;
+  border-top-right-radius: 4px;
 }
 
-.message-time {
+.msg-content {
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.msg-time {
   font-size: 11px;
-  color: #ccc;
-  margin-top: 6px;
-}
-
-.empty-chat {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.no-chat-selected {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 400px;
+  margin-top: 4px;
+  opacity: 0.7;
+  text-align: right;
 }
 
 .input-area {
-  padding: 16px;
-  background: #fff;
+  margin-top: 12px;
   border-top: 1px solid #eee;
+  padding-top: 12px;
 }
 
 .input-actions {
-  margin-top: 12px;
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.input-hint {
+  font-size: 12px;
+  color: #ccc;
 }
 </style>

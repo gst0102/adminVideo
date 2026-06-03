@@ -20,6 +20,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '数据看板', icon: 'DataAnalysis' }
       },
       {
+        path: 'video',
+        name: 'Video',
+        component: () => import('@/views/video/index.vue'),
+        meta: { title: '视频下载', icon: 'VideoCamera' }
+      },
+      {
+        path: 'anime',
+        name: 'Anime',
+        component: () => import('@/views/anime/index.vue'),
+        meta: { title: '影视资源', icon: 'VideoPlay' }
+      },
+      {
         path: 'users',
         name: 'Users',
         component: () => import('@/views/users/index.vue'),
@@ -70,10 +82,9 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('admin_token')
-  
+
   if (to.path !== '/login' && !token) {
     next({ path: '/login' })
   } else {
