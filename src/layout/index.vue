@@ -53,6 +53,10 @@
             <el-icon><Wallet /></el-icon>
             <span>提现管理</span>
           </el-menu-item>
+          <el-menu-item index="/finance/settlements">
+            <el-icon><Finished /></el-icon>
+            <span>积分结算</span>
+          </el-menu-item>
         </el-sub-menu>
 
         <el-menu-item index="/config">

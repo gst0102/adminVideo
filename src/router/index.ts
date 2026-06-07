@@ -56,6 +56,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '提现管理', icon: 'Wallet' }
       },
       {
+        path: 'finance/settlements',
+        name: 'GameSettlements',
+        component: () => import('@/views/finance/settlements.vue'),
+        meta: { title: '积分结算', icon: 'Finished' }
+      },
+      {
         path: 'config',
         name: 'Config',
         component: () => import('@/views/config/index.vue'),
