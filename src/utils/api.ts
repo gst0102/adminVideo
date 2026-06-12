@@ -37,6 +37,7 @@ http.interceptors.response.use(
 export interface NetdiskListParams {
   status?: string
   mode?: string
+  upload_id?: string
   repair_id?: string
   active?: boolean
   action?: string
@@ -131,8 +132,9 @@ export async function reviewNetdiskUpload(
   id: string,
   action: 'approve' | 'reject' | 'confirm-invalid',
   note = '',
+  options: { resource_level?: string; cost_points?: number } = {},
 ): Promise<any> {
-  return http.post(`/admin/netdisk/uploads/${id}/${action}`, { note })
+  return http.post(`/admin/netdisk/uploads/${id}/${action}`, { note, ...options })
 }
 
 export async function getNetdiskRepairs(params: NetdiskListParams = {}): Promise<any> {

@@ -84,12 +84,18 @@
           <h3>上传记录</h3>
           <p>{{ riskDetail.related.upload.title }}</p>
           <small>奖励 {{ n(riskDetail.related.upload.reward_points) }} 分 · 状态 {{ statusText(riskDetail.related.upload.status) }}</small>
+          <div class="detail-actions">
+            <el-button type="primary" @click="openOriginReview('upload', riskDetail.related.upload.id)">打开原上传审核记录</el-button>
+          </div>
         </section>
 
         <section v-if="riskDetail?.related?.repair" class="detail-section">
           <h3>补链记录</h3>
           <p>{{ riskDetail.related.repair.resource_title }}</p>
           <small>奖励 {{ n(riskDetail.related.repair.reward_points) }} 分 · 状态 {{ statusText(riskDetail.related.repair.status) }}</small>
+          <div class="detail-actions">
+            <el-button type="primary" @click="openOriginReview('repair', riskDetail.related.repair.id)">打开原补链审核记录</el-button>
+          </div>
         </section>
 
         <section class="detail-section">
@@ -115,6 +121,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -125,6 +132,7 @@ import {
 } from '@/utils/api'
 
 const loading = ref(false)
+const router = useRouter()
 const records = ref<any[]>([])
 const riskDetail = ref<any>(null)
 const detailDrawer = reactive({ visible: false, loading: false })
@@ -173,6 +181,15 @@ const loadRiskDetail = async (id: string, drawerLoading = false) => {
   } finally {
     detailDrawer.loading = false
   }
+}
+
+const openOriginReview = (kind: 'upload' | 'repair', id: string) => {
+  if (!id) return
+  if (kind === 'upload') {
+    router.push(`/review?tab=uploads&upload_id=${id}`)
+    return
+  }
+  router.push(`/review?tab=repairs&repair_id=${id}`)
 }
 
 const submitAction = async () => {
@@ -308,5 +325,9 @@ onMounted(loadData)
 
 .detail-section p {
   margin: 0 0 6px;
+}
+
+.detail-actions {
+  margin-top: 12px;
 }
 </style>

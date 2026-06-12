@@ -16,9 +16,16 @@
       <el-button :loading="seedLoading" @click="seedDemo">生成演示数据</el-button>
     </div>
 
-    <el-alert v-if="targetRepairId" class="target-alert" type="info" show-icon :closable="false" title="已从资源质量详情定位到指定投诉记录" />
+    <el-alert
+      v-if="targetUploadId || targetRepairId"
+      class="target-alert"
+      type="info"
+      show-icon
+      :closable="false"
+      :title="targetUploadId ? '已从待追缴详情定位到指定上传记录' : '已从资源质量详情定位到指定投诉记录'"
+    />
 
-    <el-table v-if="activeTab === 'uploads'" v-loading="loading" :data="uploads" border stripe>
+    <el-table v-if="activeTab === 'uploads'" v-loading="loading" :data="uploads" border stripe :row-class-name="rowClassName">
       <el-table-column prop="title" label="资源标题" min-width="240" show-overflow-tooltip />
       <el-table-column prop="category" label="分类" width="120" />
       <el-table-column prop="pan" label="网盘" width="90" />
@@ -64,6 +71,14 @@
     </el-table>
 
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="520px">
+      <div v-if="dialog.kind === 'upload' && dialog.action === 'approve'" class="resource-level-box">
+        <div class="label">资源等级 / 解锁消耗</div>
+        <el-radio-group v-model="dialog.resource_level" @change="syncCostByLevel">
+          <el-radio-button label="normal">普通 5分</el-radio-button>
+          <el-radio-button label="featured">精选 10分</el-radio-button>
+          <el-radio-button label="official">官方 20分</el-radio-button>
+        </el-radio-group>
+      </div>
       <el-input v-model="dialog.note" type="textarea" :rows="4" placeholder="填写审核备注" />
       <template #footer>
         <el-button @click="dialog.visible = false">取消</el-button>
@@ -90,8 +105,9 @@ import {
 const route = useRoute()
 const adminStore = useAdminStore()
 const activeTab = ref(String(route.query.tab || 'uploads'))
+const targetUploadId = ref(String(route.query.upload_id || ''))
 const targetRepairId = ref(String(route.query.repair_id || ''))
-const filters = reactive({ status: targetRepairId.value ? '' : 'pending' })
+const filters = reactive({ status: targetUploadId.value || targetRepairId.value ? '' : 'pending' })
 const uploads = ref<any[]>([])
 const repairs = ref<any[]>([])
 const loading = ref(false)
@@ -103,6 +119,8 @@ const dialog = reactive({
   note: '',
   kind: 'upload' as 'upload' | 'repair',
   action: 'approve' as 'approve' | 'reject' | 'confirm-invalid',
+  resource_level: 'normal',
+  cost_points: 5,
   row: null as any,
 })
 
@@ -113,8 +131,15 @@ const loadCurrent = async () => {
   loading.value = true
   try {
     if (activeTab.value === 'uploads') {
-      const data = await getNetdiskUploads({ status: filters.status || undefined, page_size: 100 })
+      const data = await getNetdiskUploads({
+        status: filters.status || undefined,
+        upload_id: targetUploadId.value || undefined,
+        page_size: 100,
+      })
       uploads.value = data.uploads || []
+      if (targetUploadId.value && uploads.value.length === 0) {
+        ElMessage.warning('没有找到这条上传记录，可能已被删除或参数无效')
+      }
     } else {
       const data = await getNetdiskRepairs({
         status: filters.status || undefined,
@@ -156,8 +181,14 @@ const openAction = (kind: 'upload' | 'repair', row: any, action: 'approve' | 're
   dialog.action = action
   dialog.row = row
   dialog.note = ''
+  dialog.resource_level = 'normal'
+  dialog.cost_points = 5
   dialog.title = `${row.title || row.resource_title} - ${actionLabel(action)}`
   dialog.visible = true
+}
+
+const syncCostByLevel = () => {
+  dialog.cost_points = ({ normal: 5, featured: 10, official: 20 } as Record<string, number>)[dialog.resource_level] || 5
 }
 
 const submitAction = async () => {
@@ -169,7 +200,10 @@ const submitAction = async () => {
   dialog.loading = true
   try {
     if (dialog.kind === 'upload') {
-      await reviewNetdiskUpload(dialog.row.id, dialog.action, dialog.note)
+      await reviewNetdiskUpload(dialog.row.id, dialog.action, dialog.note, {
+        resource_level: dialog.action === 'approve' ? dialog.resource_level : undefined,
+        cost_points: dialog.action === 'approve' ? dialog.cost_points : undefined,
+      })
     } else {
       await reviewNetdiskRepair(dialog.row.id, dialog.action, dialog.note)
     }
@@ -188,7 +222,10 @@ const statusText = (status: string) => ({ pending: '待审核', approved: '已�
 type TagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
 const statusType = (status: string): TagType => ({ pending: 'warning', approved: 'success', rejected: 'danger', invalid_confirmed: 'info' }[status] || 'info') as TagType
 const formatTime = (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-')
-const rowClassName = ({ row }: { row: any }) => (targetRepairId.value && row.id === targetRepairId.value ? 'target-row' : '')
+const rowClassName = ({ row }: { row: any }) => {
+  const targetId = activeTab.value === 'uploads' ? targetUploadId.value : targetRepairId.value
+  return targetId && row.id === targetId ? 'target-row' : ''
+}
 
 onMounted(loadCurrent)
 </script>
@@ -210,6 +247,16 @@ onMounted(loadCurrent)
 
 .target-alert {
   margin-bottom: 12px;
+}
+
+.resource-level-box {
+  margin-bottom: 14px;
+}
+
+.label {
+  margin-bottom: 8px;
+  color: #667085;
+  font-size: 13px;
 }
 
 :deep(.target-row) {
