@@ -24,7 +24,22 @@
       <el-table-column prop="created_at" label="创建时间" width="170">
         <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
       </el-table-column>
+      <el-table-column label="操作" width="180" fixed="right">
+        <template #default="{ row }">
+          <el-button v-if="row.status === 'open'" type="primary" link @click="openAction(row, 'collect')">追缴扣除</el-button>
+          <el-button v-if="row.status === 'open'" type="warning" link @click="openAction(row, 'waive')">人工关闭</el-button>
+          <el-tag v-else size="small">已处理</el-tag>
+        </template>
+      </el-table-column>
     </el-table>
+
+    <el-dialog v-model="dialog.visible" :title="dialog.title" width="520px">
+      <el-input v-model="dialog.note" type="textarea" :rows="4" placeholder="填写处理备注" />
+      <template #footer>
+        <el-button @click="dialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="dialog.loading" @click="submitAction">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -32,11 +47,19 @@
 import { onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
-import { getNetdiskRiskRecords } from '@/utils/api'
+import { collectNetdiskRiskRecord, getNetdiskRiskRecords, waiveNetdiskRiskRecord } from '@/utils/api'
 
 const loading = ref(false)
 const records = ref<any[]>([])
 const filters = reactive({ status: 'open' })
+const dialog = reactive({
+  visible: false,
+  loading: false,
+  title: '',
+  action: 'collect' as 'collect' | 'waive',
+  note: '',
+  row: null as any,
+})
 
 const loadData = async () => {
   loading.value = true
@@ -47,6 +70,34 @@ const loadData = async () => {
     ElMessage.error(error.message || '待追缴列表加载失败，请确认后端 8000 已启动')
   } finally {
     loading.value = false
+  }
+}
+
+const openAction = (row: any, action: 'collect' | 'waive') => {
+  dialog.row = row
+  dialog.action = action
+  dialog.note = ''
+  dialog.title = action === 'collect' ? `追缴扣除 ${row.points_due} 分` : '人工关闭待追缴'
+  dialog.visible = true
+}
+
+const submitAction = async () => {
+  if (!dialog.row) return
+  dialog.loading = true
+  try {
+    if (dialog.action === 'collect') {
+      const data = await collectNetdiskRiskRecord(dialog.row.id, dialog.note)
+      ElMessage.success(`已追缴 ${data.collected_points || 0} 分`)
+    } else {
+      await waiveNetdiskRiskRecord(dialog.row.id, dialog.note)
+      ElMessage.success('已人工关闭')
+    }
+    dialog.visible = false
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '处理失败')
+  } finally {
+    dialog.loading = false
   }
 }
 

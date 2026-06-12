@@ -34,6 +34,8 @@ export interface NetdiskListParams {
   active?: boolean
   action?: string
   target_type?: string
+  start_date?: string
+  end_date?: string
   keyword?: string
   page?: number
   page_size?: number
@@ -91,8 +93,30 @@ export async function getNetdiskRiskRecords(params: NetdiskListParams = {}): Pro
   return http.get('/admin/netdisk/risk-records', { params })
 }
 
+export async function collectNetdiskRiskRecord(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/risk-records/${id}/collect`, { note })
+}
+
+export async function waiveNetdiskRiskRecord(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/risk-records/${id}/waive`, { note })
+}
+
 export async function getNetdiskAuditLogs(params: NetdiskListParams = {}): Promise<any> {
   return http.get('/admin/netdisk/audit-logs', { params })
+}
+
+export async function exportNetdiskAuditLogs(params: NetdiskListParams = {}): Promise<void> {
+  const resp = await axios.get(`${API_BASE}/admin/netdisk/audit-logs/export`, {
+    params,
+    responseType: 'blob',
+  })
+  const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `netdisk-audit-logs-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export async function getNetdiskAuditConfig(): Promise<AuditConfig> {

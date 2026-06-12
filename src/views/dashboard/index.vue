@@ -74,6 +74,30 @@
       </el-descriptions>
     </section>
 
+    <section class="source-panel">
+      <div class="section-head">
+        <h2>今日积分来源分布</h2>
+        <span>按流水 source / change_type 聚合</span>
+      </div>
+      <el-table :data="data?.point_sources || []" border stripe>
+        <el-table-column prop="source" label="来源" width="130">
+          <template #default="{ row }">{{ sourceText(row.source) }}</template>
+        </el-table-column>
+        <el-table-column prop="change_type" label="类型" min-width="180">
+          <template #default="{ row }">{{ changeTypeText(row.change_type) }}</template>
+        </el-table-column>
+        <el-table-column prop="count" label="笔数" width="90" align="center" />
+        <el-table-column prop="points" label="积分" min-width="180">
+          <template #default="{ row }">
+            <div class="bar-line" :class="{ spend: row.points < 0 }">
+              <span>{{ n(row.points) }}</span>
+              <i :style="{ width: barWidth(Math.abs(row.points), sourceMax) }" />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
     <section class="trend-panel">
       <div class="section-head">
         <h2>7 日趋势</h2>
@@ -127,7 +151,21 @@ const trendMax = computed(() => {
     spend: Math.max(...trends.map((item: any) => Number(item.spend_points || 0)), 1),
   }
 })
+const sourceMax = computed(() => Math.max(...(data.value?.point_sources || []).map((item: any) => Math.abs(Number(item.points || 0))), 1))
 const barWidth = (value: number, max: number) => `${Math.max(6, Math.round((Number(value || 0) / max) * 100))}%`
+const sourceText = (value: string) => ({ netdisk: '网盘', game: '小游戏', checkin: '签到', invite: '邀请', withdraw: '提现', vip: '会员', dev: '开发数据', admin_adjust: '后台调整' }[value] || value)
+const changeTypeText = (value: string) => ({
+  resource_unlock: '资源解锁消耗',
+  upload_reward_frozen: '上传冻结奖励',
+  repair_reward_frozen: '补链冻结奖励',
+  upload_reward_invalid: '上传失效扣回',
+  repair_reward_invalid: '补链失效扣回',
+  risk_recovery_collect: '待追缴扣除',
+  dev_seed: '开发演示积分',
+  game_estimated: '小游戏预估',
+  earn: '签到获得',
+  ad_bonus: '广告奖励',
+}[value] || value)
 
 const loadData = async () => {
   loading.value = true
@@ -178,7 +216,8 @@ onMounted(loadData)
 .metric-card,
 .workbench,
 .activity,
-.trend-panel {
+.trend-panel,
+.source-panel {
   background: #fff;
   border: 1px solid #e3e8ef;
   border-radius: 8px;
@@ -207,7 +246,8 @@ onMounted(loadData)
 
 .workbench,
 .activity,
-.trend-panel {
+.trend-panel,
+.source-panel {
   margin-top: 18px;
   padding: 18px;
 }
