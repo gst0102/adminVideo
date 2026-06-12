@@ -59,7 +59,7 @@
           <el-dropdown @command="handleCommand">
             <span class="user-chip">
               <el-avatar :size="30" icon="UserFilled" />
-              <span>管理员</span>
+              <span>{{ adminStore.role === 'supervisor' ? '主管管理员' : '普通运营' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>

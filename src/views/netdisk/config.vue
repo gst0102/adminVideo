@@ -62,7 +62,7 @@ const config = reactive<AuditConfig>({
   quality_burst_report_threshold: 1,
   quality_burst_unlock_threshold: 3,
   quality_auto_review_pool: true,
-  quality_auto_hide_high_report: false,
+  quality_auto_hide_high_report: true,
   quality_auto_hide_burst: false,
   invalid_penalty_multiplier: 1,
   auto_hide_on_report: true,

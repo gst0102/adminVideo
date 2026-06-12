@@ -31,8 +31,8 @@
       <el-button @click="simulateFailure">模拟失败</el-button>
       <el-button @click="recoverRuntime">恢复成功</el-button>
       <el-button :disabled="!selectedIds.length" @click="batchHandle('read')">批量已读</el-button>
-      <el-button type="success" :disabled="!selectedIds.length" @click="batchHandle('resolve')">批量已处理</el-button>
-      <el-button type="warning" :disabled="!selectedIds.length" @click="batchHandle('ignore')">批量忽略</el-button>
+      <el-button type="success" :disabled="!selectedIds.length || !isSupervisor" @click="batchHandle('resolve')">批量已处理</el-button>
+      <el-button type="warning" :disabled="!selectedIds.length || !isSupervisor" @click="batchHandle('ignore')">批量忽略</el-button>
       <span class="selected-count">已选 {{ selectedIds.length }} 条</span>
     </div>
 
@@ -56,8 +56,8 @@
         <template #default="{ row }">
           <el-button type="primary" link @click="router.push(`/resource-quality/${row.resource_id}`)">详情</el-button>
           <el-button v-if="row.status === 'open'" type="primary" link @click="handleAlert(row, 'read')">已读</el-button>
-          <el-button v-if="['open', 'read'].includes(row.status)" type="success" link @click="handleAlert(row, 'resolve')">已处理</el-button>
-          <el-button v-if="['open', 'read'].includes(row.status)" type="warning" link @click="handleAlert(row, 'ignore')">忽略</el-button>
+          <el-button v-if="['open', 'read'].includes(row.status)" type="success" link :disabled="!isSupervisor" @click="handleAlert(row, 'resolve')">已处理</el-button>
+          <el-button v-if="['open', 'read'].includes(row.status)" type="warning" link :disabled="!isSupervisor" @click="handleAlert(row, 'ignore')">忽略</el-button>
           <el-button v-if="['resolved', 'ignored'].includes(row.status)" type="primary" link @click="handleAlert(row, 'reopen')">重开</el-button>
         </template>
       </el-table-column>
@@ -70,6 +70,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAdminStore } from '@/store'
 import {
   batchHandleNetdiskQualityAlerts,
   getNetdiskQualityAlerts,
@@ -81,6 +82,7 @@ import {
 } from '@/utils/api'
 
 const router = useRouter()
+const adminStore = useAdminStore()
 const loading = ref(false)
 const refreshing = ref(false)
 const alerts = ref<any[]>([])
@@ -88,6 +90,7 @@ const selection = ref<any[]>([])
 const runtime = ref<any>({})
 const filters = reactive({ status: 'open' })
 const selectedIds = computed(() => selection.value.map(item => item.id))
+const isSupervisor = computed(() => ['admin', 'supervisor'].includes(adminStore.role))
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 const pad = (value: any) => String(value ?? 0).padStart(2, '0')
@@ -141,6 +144,10 @@ const recoverRuntime = async () => {
 
 const handleAlert = async (row: any, action: 'read' | 'resolve' | 'ignore' | 'reopen') => {
   const label = ({ read: '标记已读', resolve: '标记已处理', ignore: '忽略预警', reopen: '重新打开' }[action])
+  if (['resolve', 'ignore'].includes(action) && !isSupervisor.value) {
+    ElMessage.warning('普通运营只能标记已读，请主管处理高风险动作')
+    return
+  }
   await handleNetdiskQualityAlert(row.id, action, `${label}：质量预警列表页处理`)
   ElMessage.success(label)
   await loadData()
@@ -154,6 +161,10 @@ const batchHandle = async (action: 'read' | 'resolve' | 'ignore') => {
   if (!selectedIds.value.length) return
   const label = ({ read: '批量已读', resolve: '批量已处理', ignore: '批量忽略' }[action])
   if (action !== 'read') {
+    if (!isSupervisor.value) {
+      ElMessage.warning('普通运营只能批量已读，请主管处理高风险动作')
+      return
+    }
     try {
       await ElMessageBox.confirm(
         `${label}会将 ${selectedIds.value.length} 条预警移出待复核池。请确认这些资源已经处理完毕，或确认本次预警可以忽略。`,

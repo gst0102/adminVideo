@@ -17,6 +17,12 @@ const normalizeError = (error: any): string => {
   return msg
 }
 
+http.interceptors.request.use((config) => {
+  config.headers = config.headers || {}
+  ;(config.headers as any)['X-Admin-Role'] = localStorage.getItem('admin_role') || 'operator'
+  return config
+})
+
 http.interceptors.response.use(
   (response) => {
     const data = response.data
@@ -76,6 +82,17 @@ export async function getNetdiskResourceQualityDetail(id: string): Promise<any> 
 
 export async function handleNetdiskQualityAlert(id: string, action: 'read' | 'resolve' | 'ignore' | 'reopen', note = ''): Promise<any> {
   return http.post(`/admin/netdisk/resource-quality/alerts/${id}/${action}`, { note })
+}
+
+export async function resolveNetdiskQualityAlertWithAction(
+  id: string,
+  resultAction: 'restore' | 'confirm_invalid' | 'keep_hidden',
+  note = '',
+): Promise<any> {
+  return http.post(`/admin/netdisk/resource-quality/alerts-action/${id}/resolve`, {
+    note,
+    result_action: resultAction,
+  })
 }
 
 export async function batchHandleNetdiskQualityAlerts(ids: string[], action: 'read' | 'resolve' | 'ignore', note = ''): Promise<any> {

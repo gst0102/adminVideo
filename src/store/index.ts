@@ -4,7 +4,8 @@ import { pingOpsDashboard } from '@/utils/api'
 
 export const useAdminStore = defineStore('admin', () => {
   const token = ref(localStorage.getItem('admin_token') || '')
-  const userInfo = ref<any>(null)
+  const role = ref(localStorage.getItem('admin_role') || (token.value ? 'supervisor' : 'operator'))
+  const userInfo = ref<any>(token.value ? { username: 'admin', role: role.value } : null)
   const loading = ref(false)
   const connectionStatus = ref<'connected' | 'disconnected'>('disconnected')
 
@@ -13,8 +14,10 @@ export const useAdminStore = defineStore('admin', () => {
     try {
       if (username === 'admin' && password === 'admin123') {
         token.value = `admin-token-${Date.now()}`
-        userInfo.value = { username, role: 'admin' }
+        role.value = 'supervisor'
+        userInfo.value = { username, role: role.value }
         localStorage.setItem('admin_token', token.value)
+        localStorage.setItem('admin_role', role.value)
         await testConnection()
         return { success: true }
       }
@@ -27,8 +30,10 @@ export const useAdminStore = defineStore('admin', () => {
   const logout = () => {
     token.value = ''
     userInfo.value = null
+    role.value = 'operator'
     connectionStatus.value = 'disconnected'
     localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_role')
   }
 
   const testConnection = async () => {
@@ -43,6 +48,7 @@ export const useAdminStore = defineStore('admin', () => {
   return {
     token,
     userInfo,
+    role,
     loading,
     connectionStatus,
     login,

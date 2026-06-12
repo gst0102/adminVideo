@@ -5,7 +5,7 @@
       <el-button type="primary" :loading="loading" @click="loadData">刷新</el-button>
       <el-button :loading="refreshingStats" @click="refreshStats">刷新统计</el-button>
       <el-button @click="router.push('/review?tab=reports')">去投诉审核</el-button>
-      <el-button v-if="detail?.resource && !detail.resource.is_active" type="success" :loading="actionLoading" @click="restoreResource">恢复上架</el-button>
+      <el-button v-if="detail?.resource && !detail.resource.is_active" type="success" :loading="actionLoading" :disabled="!isSupervisor" @click="restoreResource">恢复上架</el-button>
     </div>
 
     <section class="panel">
@@ -70,8 +70,8 @@
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'open'" type="primary" link @click="handleAlert(row, 'read')">已读</el-button>
-            <el-button v-if="['open', 'read'].includes(row.status)" type="success" link @click="handleAlert(row, 'resolve')">已处理</el-button>
-            <el-button v-if="['open', 'read'].includes(row.status)" type="warning" link @click="handleAlert(row, 'ignore')">忽略</el-button>
+            <el-button v-if="['open', 'read'].includes(row.status)" type="success" link :disabled="!isSupervisor" @click="handleAlert(row, 'resolve')">已处理</el-button>
+            <el-button v-if="['open', 'read'].includes(row.status)" type="warning" link :disabled="!isSupervisor" @click="handleAlert(row, 'ignore')">忽略</el-button>
             <el-button v-if="['resolved', 'ignored'].includes(row.status)" type="primary" link @click="handleAlert(row, 'reopen')">重开</el-button>
           </template>
         </el-table-column>
@@ -120,7 +120,7 @@
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="router.push(`/review?tab=reports&repair_id=${row.id}`)">定位审核</el-button>
-            <el-button v-if="row.status === 'pending'" type="warning" link @click="reviewReport(row, 'confirm-invalid')">确认失效</el-button>
+            <el-button v-if="row.status === 'pending'" type="warning" link :disabled="!isSupervisor" @click="reviewReport(row, 'confirm-invalid')">确认失效</el-button>
             <el-button v-if="row.status === 'pending'" type="primary" link @click="reviewReport(row, 'reject')">撤销</el-button>
           </template>
         </el-table-column>
@@ -177,10 +177,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAdminStore } from '@/store'
 import {
   getNetdiskResourceQualityDetail,
   handleNetdiskQualityAlert,
@@ -191,10 +192,12 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const adminStore = useAdminStore()
 const loading = ref(false)
 const actionLoading = ref(false)
 const refreshingStats = ref(false)
 const detail = ref<any>(null)
+const isSupervisor = computed(() => ['admin', 'supervisor'].includes(adminStore.role))
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-')
@@ -241,6 +244,10 @@ const refreshStats = async () => {
 
 const restoreResource = async () => {
   if (!detail.value?.resource) return
+  if (!isSupervisor.value) {
+    ElMessage.warning('普通运营不能恢复上架，请主管处理')
+    return
+  }
   await ElMessageBox.confirm(`确认恢复上架「${detail.value.resource.title}」？`, '恢复上架', { type: 'warning' })
   actionLoading.value = true
   try {
@@ -256,6 +263,10 @@ const restoreResource = async () => {
 
 const reviewReport = async (row: any, action: 'confirm-invalid' | 'reject') => {
   const label = action === 'confirm-invalid' ? '确认失效' : '撤销投诉'
+  if (action === 'confirm-invalid' && !isSupervisor.value) {
+    ElMessage.warning('普通运营不能确认失效，请主管处理')
+    return
+  }
   await ElMessageBox.confirm(`确认对这条投诉执行「${label}」？`, label, { type: 'warning' })
   actionLoading.value = true
   try {
@@ -271,6 +282,10 @@ const reviewReport = async (row: any, action: 'confirm-invalid' | 'reject') => {
 
 const handleAlert = async (row: any, action: 'read' | 'resolve' | 'ignore' | 'reopen') => {
   const label = ({ read: '标记已读', resolve: '标记已处理', ignore: '忽略预警', reopen: '重新打开' }[action])
+  if (['resolve', 'ignore'].includes(action) && !isSupervisor.value) {
+    ElMessage.warning('普通运营只能标记已读，请主管处理高风险动作')
+    return
+  }
   const note = action === 'read' ? '' : `${label}：资源质量详情页处理`
   await handleNetdiskQualityAlert(row.id, action, note)
   ElMessage.success(label)

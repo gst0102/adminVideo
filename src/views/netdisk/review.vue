@@ -34,7 +34,7 @@
         <template #default="{ row }">
           <el-button v-if="row.status === 'pending'" type="success" link @click="openAction('upload', row, 'approve')">通过</el-button>
           <el-button v-if="row.status === 'pending'" type="danger" link @click="openAction('upload', row, 'reject')">拒绝</el-button>
-          <el-button v-if="row.status === 'approved'" type="warning" link @click="openAction('upload', row, 'confirm-invalid')">确认失效</el-button>
+          <el-button v-if="row.status === 'approved'" type="warning" link :disabled="!isSupervisor" @click="openAction('upload', row, 'confirm-invalid')">确认失效</el-button>
           <el-tag v-if="!['pending', 'approved'].includes(row.status)" size="small">已处理</el-tag>
         </template>
       </el-table-column>
@@ -53,11 +53,11 @@
       </el-table-column>
       <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="row.status === 'pending'" type="success" link @click="openAction('repair', row, actionForApprove)">通过</el-button>
+          <el-button v-if="row.status === 'pending'" type="success" link :disabled="actionForApprove === 'confirm-invalid' && !isSupervisor" @click="openAction('repair', row, actionForApprove)">通过</el-button>
           <el-button v-if="row.status === 'pending'" type="danger" link @click="openAction('repair', row, 'reject')">
             {{ activeTab === 'reports' ? '撤销投诉' : '拒绝' }}
           </el-button>
-          <el-button v-if="row.status === 'approved' && activeTab === 'repairs'" type="warning" link @click="openAction('repair', row, 'confirm-invalid')">确认失效</el-button>
+          <el-button v-if="row.status === 'approved' && activeTab === 'repairs'" type="warning" link :disabled="!isSupervisor" @click="openAction('repair', row, 'confirm-invalid')">确认失效</el-button>
           <el-tag v-if="!['pending', 'approved'].includes(row.status)" size="small">已处理</el-tag>
         </template>
       </el-table-column>
@@ -78,6 +78,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
+import { useAdminStore } from '@/store'
 import {
   getNetdiskRepairs,
   getNetdiskUploads,
@@ -87,6 +88,7 @@ import {
 } from '@/utils/api'
 
 const route = useRoute()
+const adminStore = useAdminStore()
 const activeTab = ref(String(route.query.tab || 'uploads'))
 const targetRepairId = ref(String(route.query.repair_id || ''))
 const filters = reactive({ status: targetRepairId.value ? '' : 'pending' })
@@ -105,6 +107,7 @@ const dialog = reactive({
 })
 
 const actionForApprove = computed(() => (activeTab.value === 'reports' ? 'confirm-invalid' : 'approve') as 'approve' | 'confirm-invalid')
+const isSupervisor = computed(() => ['admin', 'supervisor'].includes(adminStore.role))
 
 const loadCurrent = async () => {
   loading.value = true
@@ -145,6 +148,10 @@ const seedDemo = async () => {
 }
 
 const openAction = (kind: 'upload' | 'repair', row: any, action: 'approve' | 'reject' | 'confirm-invalid') => {
+  if (action === 'confirm-invalid' && !isSupervisor.value) {
+    ElMessage.warning('普通运营不能确认失效，请主管处理')
+    return
+  }
   dialog.kind = kind
   dialog.action = action
   dialog.row = row
@@ -155,6 +162,10 @@ const openAction = (kind: 'upload' | 'repair', row: any, action: 'approve' | 're
 
 const submitAction = async () => {
   if (!dialog.row) return
+  if (dialog.action === 'confirm-invalid' && !isSupervisor.value) {
+    ElMessage.warning('普通运营不能确认失效，请主管处理')
+    return
+  }
   dialog.loading = true
   try {
     if (dialog.kind === 'upload') {
