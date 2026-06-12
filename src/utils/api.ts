@@ -159,6 +159,10 @@ export async function getNetdiskRiskRecords(params: NetdiskListParams = {}): Pro
   return http.get('/admin/netdisk/risk-records', { params })
 }
 
+export async function getNetdiskRiskRecordDetail(id: string): Promise<any> {
+  return http.get(`/admin/netdisk/risk-records/${id}`)
+}
+
 export async function collectNetdiskRiskRecord(id: string, note = ''): Promise<any> {
   return http.post(`/admin/netdisk/risk-records/${id}/collect`, { note })
 }
