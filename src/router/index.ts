@@ -44,6 +44,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '风控/待追缴', icon: 'Warning' },
       },
       {
+        path: 'quality-alerts',
+        name: 'QualityAlerts',
+        component: () => import('@/views/netdisk/quality-alerts.vue'),
+        meta: { title: '质量预警', icon: 'Warning' },
+      },
+      {
         path: 'logs',
         name: 'Logs',
         component: () => import('@/views/netdisk/logs.vue'),

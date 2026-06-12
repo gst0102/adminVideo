@@ -16,6 +16,8 @@
       <el-button :loading="seedLoading" @click="seedDemo">生成演示数据</el-button>
     </div>
 
+    <el-alert v-if="targetRepairId" class="target-alert" type="info" show-icon :closable="false" title="已从资源质量详情定位到指定投诉记录" />
+
     <el-table v-if="activeTab === 'uploads'" v-loading="loading" :data="uploads" border stripe>
       <el-table-column prop="title" label="资源标题" min-width="240" show-overflow-tooltip />
       <el-table-column prop="category" label="分类" width="120" />
@@ -38,7 +40,7 @@
       </el-table-column>
     </el-table>
 
-    <el-table v-else v-loading="loading" :data="repairs" border stripe>
+    <el-table v-else v-loading="loading" :data="repairs" border stripe :row-class-name="rowClassName">
       <el-table-column prop="resource_title" label="关联资源" min-width="240" show-overflow-tooltip />
       <el-table-column prop="pan" label="网盘" width="90" />
       <el-table-column prop="reward_points" label="奖励" width="90" align="center" />
@@ -86,7 +88,8 @@ import {
 
 const route = useRoute()
 const activeTab = ref(String(route.query.tab || 'uploads'))
-const filters = reactive({ status: 'pending' })
+const targetRepairId = ref(String(route.query.repair_id || ''))
+const filters = reactive({ status: targetRepairId.value ? '' : 'pending' })
 const uploads = ref<any[]>([])
 const repairs = ref<any[]>([])
 const loading = ref(false)
@@ -113,9 +116,13 @@ const loadCurrent = async () => {
       const data = await getNetdiskRepairs({
         status: filters.status || undefined,
         mode: activeTab.value === 'reports' ? 'report' : 'repair',
+        repair_id: targetRepairId.value || undefined,
         page_size: 100,
       })
       repairs.value = data.repairs || []
+      if (targetRepairId.value && repairs.value.length === 0) {
+        ElMessage.warning('没有找到这条投诉记录，可能已被删除或参数无效')
+      }
     }
   } catch (error: any) {
     ElMessage.error(error.message || '列表加载失败，请确认后端 8000 已启动')
@@ -170,6 +177,7 @@ const statusText = (status: string) => ({ pending: '待审核', approved: '已�
 type TagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
 const statusType = (status: string): TagType => ({ pending: 'warning', approved: 'success', rejected: 'danger', invalid_confirmed: 'info' }[status] || 'info') as TagType
 const formatTime = (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-')
+const rowClassName = ({ row }: { row: any }) => (targetRepairId.value && row.id === targetRepairId.value ? 'target-row' : '')
 
 onMounted(loadCurrent)
 </script>
@@ -187,5 +195,13 @@ onMounted(loadCurrent)
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.target-alert {
+  margin-bottom: 12px;
+}
+
+:deep(.target-row) {
+  --el-table-tr-bg-color: #fff7ed;
 }
 </style>

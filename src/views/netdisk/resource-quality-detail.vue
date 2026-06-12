@@ -117,8 +117,9 @@
         <el-table-column prop="note" label="投诉说明" min-width="260" show-overflow-tooltip />
         <el-table-column prop="audit_note" label="处理备注" min-width="220" show-overflow-tooltip />
         <el-table-column prop="user_id" label="用户ID" min-width="220" show-overflow-tooltip />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
+            <el-button type="primary" link @click="router.push(`/review?tab=reports&repair_id=${row.id}`)">定位审核</el-button>
             <el-button v-if="row.status === 'pending'" type="warning" link @click="reviewReport(row, 'confirm-invalid')">确认失效</el-button>
             <el-button v-if="row.status === 'pending'" type="primary" link @click="reviewReport(row, 'reject')">撤销</el-button>
           </template>

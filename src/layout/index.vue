@@ -26,6 +26,10 @@
           <el-icon><Warning /></el-icon>
           <span>风控/待追缴</span>
         </el-menu-item>
+        <el-menu-item index="/quality-alerts">
+          <el-icon><Warning /></el-icon>
+          <span>质量预警</span>
+        </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon><Tickets /></el-icon>
           <span>操作日志</span>

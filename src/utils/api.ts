@@ -31,6 +31,7 @@ http.interceptors.response.use(
 export interface NetdiskListParams {
   status?: string
   mode?: string
+  repair_id?: string
   active?: boolean
   action?: string
   target_type?: string
@@ -75,6 +76,14 @@ export async function handleNetdiskQualityAlert(id: string, action: 'read' | 're
 
 export async function refreshNetdiskQualityStats(): Promise<any> {
   return http.post('/admin/netdisk/resource-quality/refresh-stats', {})
+}
+
+export async function getNetdiskQualityAlerts(params: NetdiskListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/quality-alerts', { params })
+}
+
+export async function getNetdiskQualityStatsRuntime(): Promise<any> {
+  return http.get('/admin/netdisk/resource-quality/stats-runtime')
 }
 
 export async function getNetdiskUploads(params: NetdiskListParams = {}): Promise<any> {
