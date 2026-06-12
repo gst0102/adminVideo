@@ -73,11 +73,40 @@
         <el-descriptions-item label="今日投诉">{{ n(data?.today_activity?.reports) }}</el-descriptions-item>
       </el-descriptions>
     </section>
+
+    <section class="trend-panel">
+      <div class="section-head">
+        <h2>7 日趋势</h2>
+        <span>用户增长、积分流动、上传/投诉</span>
+      </div>
+      <el-table :data="data?.trends || []" border stripe>
+        <el-table-column prop="date" label="日期" width="120" />
+        <el-table-column prop="new_users" label="新增用户" width="100" align="center" />
+        <el-table-column prop="gain_points" label="发放积分" min-width="170">
+          <template #default="{ row }">
+            <div class="bar-line">
+              <span>{{ n(row.gain_points) }}</span>
+              <i :style="{ width: barWidth(row.gain_points, trendMax.gain) }" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="spend_points" label="消耗积分" min-width="170">
+          <template #default="{ row }">
+            <div class="bar-line spend">
+              <span>{{ n(row.spend_points) }}</span>
+              <i :style="{ width: barWidth(row.spend_points, trendMax.spend) }" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="uploads" label="上传" width="90" align="center" />
+        <el-table-column prop="reports" label="投诉" width="90" align="center" />
+      </el-table>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
@@ -91,6 +120,14 @@ const data = ref<any>(null)
 const n = (value: any) => Number(value || 0).toLocaleString()
 const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-')
 const go = (path: string) => router.push(path)
+const trendMax = computed(() => {
+  const trends = data.value?.trends || []
+  return {
+    gain: Math.max(...trends.map((item: any) => Number(item.gain_points || 0)), 1),
+    spend: Math.max(...trends.map((item: any) => Number(item.spend_points || 0)), 1),
+  }
+})
+const barWidth = (value: number, max: number) => `${Math.max(6, Math.round((Number(value || 0) / max) * 100))}%`
 
 const loadData = async () => {
   loading.value = true
@@ -140,7 +177,8 @@ onMounted(loadData)
 
 .metric-card,
 .workbench,
-.activity {
+.activity,
+.trend-panel {
   background: #fff;
   border: 1px solid #e3e8ef;
   border-radius: 8px;
@@ -168,7 +206,8 @@ onMounted(loadData)
 }
 
 .workbench,
-.activity {
+.activity,
+.trend-panel {
   margin-top: 18px;
   padding: 18px;
 }
@@ -215,6 +254,29 @@ onMounted(loadData)
 
 .task span {
   color: #344054;
+}
+
+.bar-line {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-line span {
+  color: #344054;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-line i {
+  display: block;
+  height: 8px;
+  background: #0f766e;
+  border-radius: 999px;
+}
+
+.bar-line.spend i {
+  background: #b45309;
 }
 
 @media (max-width: 1100px) {

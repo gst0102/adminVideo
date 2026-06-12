@@ -26,6 +26,10 @@
           <el-icon><Warning /></el-icon>
           <span>风控/待追缴</span>
         </el-menu-item>
+        <el-menu-item index="/logs">
+          <el-icon><Tickets /></el-icon>
+          <span>操作日志</span>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <span>规则配置</span>

@@ -32,6 +32,8 @@ export interface NetdiskListParams {
   status?: string
   mode?: string
   active?: boolean
+  action?: string
+  target_type?: string
   keyword?: string
   page?: number
   page_size?: number
@@ -87,6 +89,10 @@ export async function restoreNetdiskResource(id: string, note = ''): Promise<any
 
 export async function getNetdiskRiskRecords(params: NetdiskListParams = {}): Promise<any> {
   return http.get('/admin/netdisk/risk-records', { params })
+}
+
+export async function getNetdiskAuditLogs(params: NetdiskListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/audit-logs', { params })
 }
 
 export async function getNetdiskAuditConfig(): Promise<AuditConfig> {

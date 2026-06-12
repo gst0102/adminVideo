@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '风控/待追缴', icon: 'Warning' },
       },
       {
+        path: 'logs',
+        name: 'Logs',
+        component: () => import('@/views/netdisk/logs.vue'),
+        meta: { title: '操作日志', icon: 'Tickets' },
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/netdisk/config.vue'),
