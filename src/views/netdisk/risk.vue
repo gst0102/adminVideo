@@ -10,9 +10,13 @@
 
     <el-table v-loading="loading" :data="records" border stripe>
       <el-table-column prop="user_id" label="用户ID" min-width="220" show-overflow-tooltip />
-      <el-table-column prop="related_type" label="来源" width="150" />
+      <el-table-column prop="related_type" label="来源" width="150">
+        <template #default="{ row }">{{ relatedTypeText(row.related_type) }}</template>
+      </el-table-column>
       <el-table-column prop="related_id" label="关联记录" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="reason" label="原因" width="180" />
+      <el-table-column prop="reason" label="原因" width="200">
+        <template #default="{ row }">{{ reasonText(row.reason) }}</template>
+      </el-table-column>
       <el-table-column prop="points_due" label="待追缴" width="100" align="center" />
       <el-table-column prop="points_collected" label="已扣" width="90" align="center" />
       <el-table-column prop="status" label="状态" width="110" align="center">
@@ -119,6 +123,14 @@ const submitAction = async () => {
 }
 
 const formatTime = (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-')
+const relatedTypeText = (value: string) => ({ netdisk_upload: '上传', netdisk_repair: '补链', netdisk_resource: '资源' }[value] || value)
+const reasonText = (value: string) => ({
+  upload_reward_invalid: '上传确认失效',
+  repair_reward_invalid: '补链确认失效',
+  resource_invalid_pending_penalty: '资源失效待处罚',
+  upload_reward_rejected: '上传拒绝扣回',
+  repair_reward_rejected: '补链拒绝扣回',
+}[value] || value)
 
 onMounted(loadData)
 </script>

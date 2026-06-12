@@ -212,6 +212,8 @@ const actionText = (value: string) => ({
   report_confirm: '投诉确认',
   report_reject: '投诉撤销',
   resource_restore: '恢复上架',
+  resource_quality_confirm_invalid: '资源质量确认失效',
+  resource_quality_keep_hidden: '资源质量继续隐藏',
   upload_confirm_invalid: '上传失效',
   repair_confirm_invalid: '补链失效',
 }[value] || value)

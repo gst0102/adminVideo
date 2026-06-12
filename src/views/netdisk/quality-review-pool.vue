@@ -227,8 +227,28 @@ const resolveWithResult = async (resultAction: 'restore' | 'confirm_invalid' | '
   const label = ({ restore: '恢复上架', confirm_invalid: '确认失效', keep_hidden: '继续隐藏' }[resultAction])
   const confirmed = await confirmDangerAction(label, 1)
   if (!confirmed) return
-  await resolveNetdiskQualityAlertWithAction(detailAlert.value.id, resultAction, `${label}：待复核池详情抽屉处理`)
-  ElMessage.success(`${label}完成`)
+  const data = await resolveNetdiskQualityAlertWithAction(detailAlert.value.id, resultAction, `${label}：待复核池详情抽屉处理`)
+  const riskCount = Number(data?.result?.risk_records_created || 0)
+  if (resultAction === 'confirm_invalid' && riskCount > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `确认失效完成，已生成 ${riskCount} 条待追缴记录。是否现在前往风控/待追缴处理？`,
+        '待追缴已生成',
+        {
+          confirmButtonText: '去处理',
+          cancelButtonText: '稍后处理',
+          type: 'warning',
+        },
+      )
+      router.push('/risks')
+    } catch {
+      ElMessage.success(`${label}完成，已生成待追缴记录`)
+    }
+  } else if (resultAction === 'confirm_invalid') {
+    ElMessage.success(`${label}完成，暂无可归因的待追缴记录`)
+  } else {
+    ElMessage.success(`${label}完成`)
+  }
   detailDrawer.value.visible = false
   await loadData()
 }

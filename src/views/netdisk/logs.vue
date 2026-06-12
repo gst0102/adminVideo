@@ -67,6 +67,8 @@ const actionOptions = [
   { label: '投诉确认', value: 'report_confirm' },
   { label: '投诉撤销', value: 'report_reject' },
   { label: '资源恢复上架', value: 'resource_restore' },
+  { label: '资源质量确认失效', value: 'resource_quality_confirm_invalid' },
+  { label: '资源质量继续隐藏', value: 'resource_quality_keep_hidden' },
   { label: '待追缴扣除', value: 'risk_collect' },
   { label: '待追缴关闭', value: 'risk_waive' },
 ]
