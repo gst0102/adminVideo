@@ -1,224 +1,226 @@
 <template>
   <div class="dashboard">
-    <el-row :gutter="20" class="stat-cards">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card user-card">
-          <div class="stat-content">
-            <div class="stat-icon"><el-icon :size="40"><User /></el-icon></div>
-            <div class="stat-info">
-              <div class="stat-number">{{ stats.userCount }}</div>
-              <div class="stat-label">总用户数</div>
-            </div>
-          </div>
-          <div class="stat-footer">今日新增：{{ stats.todayCount }}</div>
-        </el-card>
-      </el-col>
+    <div class="toolbar">
+      <el-button type="primary" :loading="loading" @click="loadData">刷新看板</el-button>
+      <el-button :loading="seedLoading" @click="seedDemo">生成演示数据</el-button>
+      <span class="stamp">更新时间：{{ formatTime(data?.generated_at) }}</span>
+    </div>
 
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card vip-card">
-          <div class="stat-content">
-            <div class="stat-icon"><el-icon :size="40"><Medal /></el-icon></div>
-            <div class="stat-info">
-              <div class="stat-number">{{ stats.currentVipCount }}</div>
-              <div class="stat-label">当前有效 VIP</div>
-            </div>
-          </div>
-          <div class="stat-footer">累计开通 VIP：{{ stats.totalVipCount }}</div>
-        </el-card>
-      </el-col>
+    <section class="metric-grid">
+      <div class="metric-card">
+        <span>今日新增用户</span>
+        <strong>{{ n(data?.users?.today_new) }}</strong>
+        <small>累计 {{ n(data?.users?.total) }} 人</small>
+      </div>
+      <div class="metric-card">
+        <span>今日发放积分</span>
+        <strong>{{ n(data?.points?.today_gain_points) }}</strong>
+        <small>{{ n(data?.points?.today_gain_users) }} 人获得</small>
+      </div>
+      <div class="metric-card">
+        <span>今日消耗积分</span>
+        <strong>{{ n(data?.points?.today_spend_points) }}</strong>
+        <small>{{ n(data?.points?.today_spend_users) }} 人消耗</small>
+      </div>
+      <div class="metric-card">
+        <span>当前可用积分</span>
+        <strong>{{ n(data?.points?.consumable_total) }}</strong>
+        <small>冻结 {{ n(data?.points?.frozen_total) }} 分</small>
+      </div>
+      <div class="metric-card warning">
+        <span>待追缴积分</span>
+        <strong>{{ n(data?.points?.risk_due_total) }}</strong>
+        <small>{{ n(data?.workbench?.open_risk_records) }} 条风控记录</small>
+      </div>
+    </section>
 
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card income-card">
-          <div class="stat-content">
-            <div class="stat-icon"><el-icon :size="40"><Money /></el-icon></div>
-            <div class="stat-info">
-              <div class="stat-number">¥{{ stats.totalIncome }}</div>
-              <div class="stat-label">总收入</div>
-            </div>
-          </div>
-          <div class="stat-footer">累计收益统计</div>
-        </el-card>
-      </el-col>
+    <section class="workbench">
+      <div class="section-head">
+        <h2>今日待处理</h2>
+        <span>按运营动作优先级排序</span>
+      </div>
+      <div class="task-grid">
+        <button class="task" @click="go('/review')">
+          <b>{{ n(data?.workbench?.pending_uploads) }}</b>
+          <span>待审核上传</span>
+        </button>
+        <button class="task" @click="go('/review?tab=repairs')">
+          <b>{{ n(data?.workbench?.pending_repairs) }}</b>
+          <span>待审核补链</span>
+        </button>
+        <button class="task" @click="go('/review?tab=reports')">
+          <b>{{ n(data?.workbench?.pending_reports) }}</b>
+          <span>待核验投诉</span>
+        </button>
+        <button class="task" @click="go('/resources?active=false')">
+          <b>{{ n(data?.workbench?.hidden_resources) }}</b>
+          <span>隐藏资源</span>
+        </button>
+        <button class="task" @click="go('/risks')">
+          <b>{{ n(data?.workbench?.open_risk_records) }}</b>
+          <span>待追缴记录</span>
+        </button>
+      </div>
+    </section>
 
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card withdrawal-card">
-          <div class="stat-content">
-            <div class="stat-icon"><el-icon :size="40"><Wallet /></el-icon></div>
-            <div class="stat-info">
-              <div class="stat-number">¥{{ stats.pendingWithdrawalAmount }}</div>
-              <div class="stat-label">待提现总额</div>
-            </div>
-          </div>
-          <div class="stat-footer">处理中笔数：{{ stats.pendingWithdrawals }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="20" style="margin-top: 20px">
-      <el-col :span="12">
-        <el-card shadow="hover">
-          <template #header><span>最近注册用户</span></template>
-          <el-table :data="recentUsers" stripe size="small">
-            <el-table-column prop="nickname" label="昵称" />
-            <el-table-column prop="invite_code" label="邀请码" width="120" />
-            <el-table-column label="VIP" width="180">
-              <template #default="{ row }">
-                <div class="vip-status">
-                  <el-tag :type="row.is_vip ? 'success' : 'info'" size="small">{{ row.is_vip ? '是' : '否' }}</el-tag>
-                  <span>{{ row.vip_expire_at ? formatTime(row.vip_expire_at) : '-' }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="注册时间" width="180">
-              <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-
-      <el-col :span="12">
-        <el-card shadow="hover">
-          <template #header><span>待处理提现</span></template>
-          <el-table :data="pendingWithdrawals" stripe size="small">
-            <el-table-column prop="nickname" label="用户" />
-            <el-table-column prop="amount" label="金额" width="100">
-              <template #default="{ row }">¥{{ Number(row.amount || 0).toFixed(2) }}</template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="申请时间" width="180">
-              <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="120">
-              <template #default="{ row }">
-                <el-tag type="warning" size="small">{{ row.transfer_bill_no ? '等待回调' : '待提交转账' }}</el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-    </el-row>
+    <section class="activity">
+      <div class="section-head">
+        <h2>今日资源活动</h2>
+      </div>
+      <el-descriptions border :column="3">
+        <el-descriptions-item label="今日上传">{{ n(data?.today_activity?.uploads) }}</el-descriptions-item>
+        <el-descriptions-item label="今日补链">{{ n(data?.today_activity?.repairs) }}</el-descriptions-item>
+        <el-descriptions-item label="今日投诉">{{ n(data?.today_activity?.reports) }}</el-descriptions-item>
+      </el-descriptions>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { useAdminStore } from '@/store'
+import { ElMessage } from 'element-plus'
+import { getOpsDashboard, seedNetdiskReviewDemo } from '@/utils/api'
 
-const adminStore = useAdminStore()
+const router = useRouter()
+const loading = ref(false)
+const seedLoading = ref(false)
+const data = ref<any>(null)
 
-const stats = ref({
-  userCount: 0,
-  totalVipCount: 0,
-  currentVipCount: 0,
-  todayCount: 0,
-  totalIncome: '0.00',
-  pendingWithdrawals: 0,
-  pendingWithdrawalAmount: '0.00',
-})
+const n = (value: any) => Number(value || 0).toLocaleString()
+const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-')
+const go = (path: string) => router.push(path)
 
-const recentUsers = ref<any[]>([])
-const pendingWithdrawals = ref<any[]>([])
-
-const loadStats = async () => {
-  const data = await adminStore.getDashboardStats()
-  stats.value = {
-    userCount: data.userCount ?? data.user_count ?? 0,
-    totalVipCount: data.totalVipCount ?? data.total_vip_count ?? 0,
-    currentVipCount: data.vipCount ?? data.vip_count ?? 0,
-    todayCount: data.todayNewUsers ?? data.today_new_users ?? 0,
-    totalIncome: String(data.totalIncome ?? data.total_income ?? '0.00'),
-    pendingWithdrawals: data.pendingWithdrawals ?? data.pending_withdrawals ?? 0,
-    pendingWithdrawalAmount: Number(data.pendingWithdrawalAmount ?? data.pending_withdrawal_amount ?? 0).toFixed(2),
+const loadData = async () => {
+  loading.value = true
+  try {
+    data.value = await getOpsDashboard()
+  } catch (error: any) {
+    ElMessage.error(error.message || '运营看板加载失败，请确认后端 8000 已启动')
+  } finally {
+    loading.value = false
   }
 }
 
-const loadLists = async () => {
-  const usersResult = await adminStore.getUserList(1, 5)
-  recentUsers.value = usersResult?.list || []
-
-  const withdrawals = await adminStore.getWithdrawalList('processing')
-  const list = Array.isArray(withdrawals) ? withdrawals : withdrawals?.list || []
-  pendingWithdrawals.value = list.slice(0, 5)
+const seedDemo = async () => {
+  seedLoading.value = true
+  try {
+    await seedNetdiskReviewDemo()
+    ElMessage.success('演示数据已生成')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '生成演示数据失败')
+  } finally {
+    seedLoading.value = false
+  }
 }
 
-const formatTime = (time: any) => {
-  if (!time) return '-'
-  return dayjs(time).format('YYYY-MM-DD HH:mm')
-}
-
-onMounted(async () => {
-  await loadStats()
-  await loadLists()
-})
+onMounted(loadData)
 </script>
 
 <style scoped>
-.dashboard {
-  padding: 0;
-}
-
-.stat-cards .el-col {
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  cursor: default;
-}
-
-.stat-content {
+.toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.stat-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.user-card .stat-icon {
-  background: linear-gradient(135deg, #409eff, #36d1dc);
-}
-
-.vip-card .stat-icon {
-  background: linear-gradient(135deg, #67c23a, #95de64);
-}
-
-.income-card .stat-icon {
-  background: linear-gradient(135deg, #e6a23c, #f7ba2a);
-}
-
-.withdrawal-card .stat-icon {
-  background: linear-gradient(135deg, #f56c6c, #ff8a8a);
-}
-
-.stat-number {
-  font-size: 30px;
-  font-weight: 700;
-  color: #333;
-}
-
-.stat-label {
-  color: #666;
-  margin-top: 4px;
-}
-
-.stat-footer {
-  margin-top: 16px;
-  color: #999;
+.stamp {
+  color: #697386;
   font-size: 13px;
 }
 
-.vip-status {
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric-card,
+.workbench,
+.activity {
+  background: #fff;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+}
+
+.metric-card {
+  padding: 18px;
+}
+
+.metric-card span,
+.metric-card small {
+  color: #697386;
+  font-size: 13px;
+}
+
+.metric-card strong {
+  display: block;
+  margin: 10px 0 8px;
+  color: #172033;
+  font-size: 30px;
+}
+
+.metric-card.warning strong {
+  color: #b45309;
+}
+
+.workbench,
+.activity {
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.section-head {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: #666;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.section-head h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+}
+
+.section-head span {
+  color: #8a96a8;
+  font-size: 13px;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.task {
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  background: #f8fafc;
+  border: 1px solid #dfe7ef;
+  border-radius: 8px;
+}
+
+.task b {
+  display: block;
+  margin-bottom: 8px;
+  color: #0f766e;
+  font-size: 26px;
+}
+
+.task span {
+  color: #344054;
+}
+
+@media (max-width: 1100px) {
+  .metric-grid,
+  .task-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

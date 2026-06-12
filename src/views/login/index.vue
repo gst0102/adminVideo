@@ -1,62 +1,39 @@
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="login-header">
-        <el-icon :size="48" color="#409EFF"><VideoCamera /></el-icon>
-        <h1 class="title">视频平台管理后台</h1>
-        <p class="subtitle">Video Platform Admin Panel</p>
+  <div class="login-page">
+    <section class="login-panel">
+      <div class="mark">
+        <el-icon :size="32"><Collection /></el-icon>
       </div>
+      <h1>悦享资源库运营后台</h1>
+      <p>资源审核、投诉处理、积分风控</p>
 
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="rules"
-        class="login-form"
-        @submit.prevent="handleLogin"
-      >
+      <el-form ref="formRef" :model="formData" :rules="rules" class="login-form" @submit.prevent="handleLogin">
         <el-form-item prop="username">
-          <el-input
-            v-model="formData.username"
-            placeholder="请输入用户名"
-            size="large"
-            prefix-icon="User"
-          />
+          <el-input v-model="formData.username" size="large" placeholder="账号" prefix-icon="User" />
         </el-form-item>
-
         <el-form-item prop="password">
           <el-input
             v-model="formData.password"
-            type="password"
-            placeholder="请输入密码"
             size="large"
+            type="password"
+            placeholder="密码"
             prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
           />
         </el-form-item>
-
-        <el-form-item>
-          <el-button
-            type="primary"
-            size="large"
-            :loading="adminStore.loading"
-            class="login-btn"
-            @click="handleLogin"
-          >
-            {{ adminStore.loading ? '登录中...' : '登 录' }}
-          </el-button>
-        </el-form-item>
+        <el-button type="primary" size="large" :loading="adminStore.loading" class="login-btn" @click="handleLogin">
+          {{ adminStore.loading ? '登录中' : '进入后台' }}
+        </el-button>
       </el-form>
 
-      <div class="login-tips">
-        <p>默认账号：admin / admin123</p>
-      </div>
-    </div>
+      <div class="tips">默认账号：admin / admin123</div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -65,30 +42,20 @@ import { useAdminStore } from '@/store'
 const router = useRouter()
 const adminStore = useAdminStore()
 const formRef = ref<FormInstance>()
-
-const formData = reactive({
-  username: '',
-  password: ''
-})
+const formData = reactive({ username: 'admin', password: 'admin123' })
 
 const rules: FormRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能小于6位', trigger: 'blur' }
-  ]
+  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
 const handleLogin = async () => {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
-
   try {
     await adminStore.login(formData.username, formData.password)
     ElMessage.success('登录成功')
-    router.push('/')
+    router.push('/dashboard')
   } catch (error: any) {
     ElMessage.error(error.message || '登录失败')
   }
@@ -96,53 +63,58 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-container {
-  width: 100%;
-  height: 100vh;
+.login-page {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 100%;
+  min-height: 100vh;
+  background: #eef4f1;
 }
 
-.login-card {
-  width: 420px;
-  padding: 40px;
+.login-panel {
+  width: 390px;
+  padding: 38px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid #dfe7e4;
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(23, 32, 51, 0.12);
 }
 
-.login-header {
-  text-align: center;
-  margin-bottom: 40px;
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  color: #0f766e;
+  background: #e7f6f2;
+  border-radius: 8px;
 }
 
-.title {
-  margin: 16px 0 8px;
-  font-size: 28px;
-  font-weight: bold;
-  color: #333;
+h1 {
+  margin: 22px 0 8px;
+  color: #172033;
+  font-size: 26px;
 }
 
-.subtitle {
-  color: #999;
-  font-size: 14px;
+p {
   margin: 0;
+  color: #697386;
 }
 
 .login-form {
-  margin-top: 30px;
+  margin-top: 28px;
 }
 
 .login-btn {
   width: 100%;
 }
 
-.login-tips {
-  text-align: center;
-  margin-top: 20px;
-  color: #999;
+.tips {
+  margin-top: 18px;
+  color: #8a96a8;
   font-size: 12px;
+  text-align: center;
 }
 </style>
