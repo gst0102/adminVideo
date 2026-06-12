@@ -28,6 +28,8 @@
       </el-select>
       <el-button type="primary" :loading="loading" @click="loadData">刷新</el-button>
       <el-button :loading="refreshing" @click="refreshStats">刷新统计</el-button>
+      <el-button @click="simulateFailure">模拟失败</el-button>
+      <el-button @click="recoverRuntime">恢复成功</el-button>
       <el-button :disabled="!selectedIds.length" @click="batchHandle('read')">批量已读</el-button>
       <el-button type="success" :disabled="!selectedIds.length" @click="batchHandle('resolve')">批量已处理</el-button>
       <el-button type="warning" :disabled="!selectedIds.length" @click="batchHandle('ignore')">批量忽略</el-button>
@@ -67,13 +69,15 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   batchHandleNetdiskQualityAlerts,
   getNetdiskQualityAlerts,
   getNetdiskQualityStatsRuntime,
   handleNetdiskQualityAlert,
+  recoverNetdiskQualityStatsRuntime,
   refreshNetdiskQualityStats,
+  simulateNetdiskQualityStatsFailure,
 } from '@/utils/api'
 
 const router = useRouter()
@@ -123,6 +127,18 @@ const refreshStats = async () => {
   }
 }
 
+const simulateFailure = async () => {
+  await simulateNetdiskQualityStatsFailure()
+  ElMessage.warning('已模拟质量统计任务失败')
+  await loadData()
+}
+
+const recoverRuntime = async () => {
+  await recoverNetdiskQualityStatsRuntime()
+  ElMessage.success('质量统计任务已恢复')
+  await loadData()
+}
+
 const handleAlert = async (row: any, action: 'read' | 'resolve' | 'ignore' | 'reopen') => {
   const label = ({ read: '标记已读', resolve: '标记已处理', ignore: '忽略预警', reopen: '重新打开' }[action])
   await handleNetdiskQualityAlert(row.id, action, `${label}：质量预警列表页处理`)
@@ -137,6 +153,21 @@ const handleSelectionChange = (rows: any[]) => {
 const batchHandle = async (action: 'read' | 'resolve' | 'ignore') => {
   if (!selectedIds.value.length) return
   const label = ({ read: '批量已读', resolve: '批量已处理', ignore: '批量忽略' }[action])
+  if (action !== 'read') {
+    try {
+      await ElMessageBox.confirm(
+        `${label}会将 ${selectedIds.value.length} 条预警移出待复核池。请确认这些资源已经处理完毕，或确认本次预警可以忽略。`,
+        `${label}确认`,
+        {
+          confirmButtonText: '确认执行',
+          cancelButtonText: '再检查一下',
+          type: action === 'resolve' ? 'success' : 'warning',
+        },
+      )
+    } catch {
+      return
+    }
+  }
   const data = await batchHandleNetdiskQualityAlerts(selectedIds.value, action, `${label}：质量预警列表页处理`)
   ElMessage.success(`${label} ${data.handled || 0} 条`)
   selection.value = []

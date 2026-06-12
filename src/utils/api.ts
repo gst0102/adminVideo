@@ -38,6 +38,7 @@ export interface NetdiskListParams {
   start_date?: string
   end_date?: string
   keyword?: string
+  review_pool?: boolean
   page?: number
   page_size?: number
 }
@@ -50,6 +51,9 @@ export interface AuditConfig {
   quality_high_unlock_threshold: number
   quality_burst_report_threshold: number
   quality_burst_unlock_threshold: number
+  quality_auto_review_pool: boolean
+  quality_auto_hide_high_report: boolean
+  quality_auto_hide_burst: boolean
   invalid_penalty_multiplier: number
   auto_hide_on_report: boolean
 }
@@ -86,8 +90,20 @@ export async function getNetdiskQualityAlerts(params: NetdiskListParams = {}): P
   return http.get('/admin/netdisk/quality-alerts', { params })
 }
 
+export async function getNetdiskQualityReviewPool(params: NetdiskListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/quality-review-pool', { params })
+}
+
 export async function getNetdiskQualityStatsRuntime(): Promise<any> {
   return http.get('/admin/netdisk/resource-quality/stats-runtime')
+}
+
+export async function simulateNetdiskQualityStatsFailure(): Promise<any> {
+  return http.post('/admin/netdisk/resource-quality/stats-runtime/dev-simulate-failure', {})
+}
+
+export async function recoverNetdiskQualityStatsRuntime(): Promise<any> {
+  return http.post('/admin/netdisk/resource-quality/stats-runtime/dev-recover', {})
 }
 
 export async function getNetdiskUploads(params: NetdiskListParams = {}): Promise<any> {

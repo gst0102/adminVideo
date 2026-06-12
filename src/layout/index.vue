@@ -30,6 +30,10 @@
           <el-icon><Warning /></el-icon>
           <span>质量预警</span>
         </el-menu-item>
+        <el-menu-item index="/quality-review-pool">
+          <el-icon><CircleCheck /></el-icon>
+          <span>待复核池</span>
+        </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon><Tickets /></el-icon>
           <span>操作日志</span>

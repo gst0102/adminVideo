@@ -50,6 +50,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '质量预警', icon: 'Warning' },
       },
       {
+        path: 'quality-review-pool',
+        name: 'QualityReviewPool',
+        component: () => import('@/views/netdisk/quality-review-pool.vue'),
+        meta: { title: '待复核池', icon: 'CircleCheck' },
+      },
+      {
         path: 'logs',
         name: 'Logs',
         component: () => import('@/views/netdisk/logs.vue'),

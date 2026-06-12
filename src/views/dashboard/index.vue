@@ -68,7 +68,7 @@
           <b>{{ n(data?.workbench?.open_risk_records) }}</b>
           <span>待追缴记录</span>
         </button>
-        <button class="task danger" @click="scrollToQuality">
+        <button class="task danger" @click="go('/quality-review-pool')">
           <b>{{ n(data?.workbench?.quality_review_pool ?? data?.workbench?.quality_alerts) }}</b>
           <span>待复核资源</span>
         </button>
@@ -232,7 +232,6 @@ const n = (value: any) => Number(value || 0).toLocaleString()
 const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-')
 const go = (path: string) => router.push(path)
 const openQualityDetail = (id: string) => router.push(`/resource-quality/${id}`)
-const scrollToQuality = () => qualityPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 const trendMax = computed(() => {
   const trends = data.value?.trends || []
   return {
