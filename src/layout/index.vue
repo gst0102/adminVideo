@@ -59,6 +59,11 @@
           </el-menu-item>
         </el-sub-menu>
 
+        <el-menu-item index="/netdisk/review">
+          <el-icon><FolderChecked /></el-icon>
+          <span>网盘审核</span>
+        </el-menu-item>
+
         <el-menu-item index="/config">
           <el-icon><Setting /></el-icon>
           <span>系统配置</span>

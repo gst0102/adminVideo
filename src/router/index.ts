@@ -62,6 +62,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '积分结算', icon: 'Finished' }
       },
       {
+        path: 'netdisk/review',
+        name: 'NetdiskReview',
+        component: () => import('@/views/netdisk/review.vue'),
+        meta: { title: '网盘审核', icon: 'FolderChecked' }
+      },
+      {
         path: 'config',
         name: 'Config',
         component: () => import('@/views/config/index.vue'),

@@ -169,6 +169,62 @@ export async function sendReply(userId: string, content: string): Promise<any> {
   return http.post('/admin/chat/reply', { user_id: userId, content })
 }
 
+
+// ==================== 网盘审核 ====================
+
+export interface NetdiskAuditListParams {
+  status?: string
+  mode?: string
+  active?: boolean
+  keyword?: string
+  page?: number
+  page_size?: number
+}
+
+export async function getNetdiskUploads(params: NetdiskAuditListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/uploads', { params })
+}
+
+export async function getNetdiskRepairs(params: NetdiskAuditListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/repairs', { params })
+}
+
+export async function getNetdiskResources(params: NetdiskAuditListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/resources', { params })
+}
+
+export async function getNetdiskRiskRecords(params: NetdiskAuditListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/risk-records', { params })
+}
+
+export async function reviewNetdiskUpload(
+  id: string,
+  action: 'approve' | 'reject' | 'confirm-invalid',
+  note = '',
+): Promise<any> {
+  return http.post(`/admin/netdisk/uploads/${id}/${action}`, { note })
+}
+
+export async function reviewNetdiskRepair(
+  id: string,
+  action: 'approve' | 'reject' | 'confirm-invalid',
+  note = '',
+): Promise<any> {
+  return http.post(`/admin/netdisk/repairs/${id}/${action}`, { note })
+}
+
+export async function restoreNetdiskResource(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/resources/${id}/restore`, { note })
+}
+
+export async function getNetdiskAuditConfig(): Promise<any> {
+  return http.get('/admin/netdisk/audit-config')
+}
+
+export async function updateNetdiskAuditConfig(configData: any): Promise<any> {
+  return http.put('/admin/netdisk/audit-config', { type: 'netdisk_audit_config', config_data: configData })
+}
+
 export async function getUserGrowthStats(days: number = 7): Promise<any> {
   return http.get('/admin/dashboard', { params: { days } })
 }
