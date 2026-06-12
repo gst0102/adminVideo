@@ -58,11 +58,11 @@ export async function pingOpsDashboard(pointsRange: 'today' | '7d' = 'today'): P
   return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
 }
 
-export async function getOpsDashboard(pointsRange: 'today' | '7d' = 'today'): Promise<any> {
-  return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
+export async function getOpsDashboard(pointsRange: 'today' | '7d' = 'today', qualityRange: 'today' | '7d' | 'all' = '7d'): Promise<any> {
+  return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange, quality_range: qualityRange } })
 }
 
-export async function getNetdiskResourceQuality(params: { filter?: string; page_size?: number } = {}): Promise<any> {
+export async function getNetdiskResourceQuality(params: { filter?: string; range?: string; page_size?: number } = {}): Promise<any> {
   return http.get('/admin/netdisk/resource-quality', { params })
 }
 
@@ -72,6 +72,10 @@ export async function getNetdiskResourceQualityDetail(id: string): Promise<any> 
 
 export async function handleNetdiskQualityAlert(id: string, action: 'read' | 'resolve' | 'ignore' | 'reopen', note = ''): Promise<any> {
   return http.post(`/admin/netdisk/resource-quality/alerts/${id}/${action}`, { note })
+}
+
+export async function batchHandleNetdiskQualityAlerts(ids: string[], action: 'read' | 'resolve' | 'ignore', note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/resource-quality/alerts-batch/${action}`, { ids, note })
 }
 
 export async function refreshNetdiskQualityStats(): Promise<any> {

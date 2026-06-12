@@ -28,9 +28,14 @@
       </el-select>
       <el-button type="primary" :loading="loading" @click="loadData">刷新</el-button>
       <el-button :loading="refreshing" @click="refreshStats">刷新统计</el-button>
+      <el-button :disabled="!selectedIds.length" @click="batchHandle('read')">批量已读</el-button>
+      <el-button type="success" :disabled="!selectedIds.length" @click="batchHandle('resolve')">批量已处理</el-button>
+      <el-button type="warning" :disabled="!selectedIds.length" @click="batchHandle('ignore')">批量忽略</el-button>
+      <span class="selected-count">已选 {{ selectedIds.length }} 条</span>
     </div>
 
-    <el-table v-loading="loading" :data="alerts" border stripe>
+    <el-table v-loading="loading" :data="alerts" border stripe @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="48" />
       <el-table-column prop="last_triggered_at" label="触发时间" width="160">
         <template #default="{ row }">{{ formatTime(row.last_triggered_at) }}</template>
       </el-table-column>
@@ -59,11 +64,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import {
+  batchHandleNetdiskQualityAlerts,
   getNetdiskQualityAlerts,
   getNetdiskQualityStatsRuntime,
   handleNetdiskQualityAlert,
@@ -74,8 +80,10 @@ const router = useRouter()
 const loading = ref(false)
 const refreshing = ref(false)
 const alerts = ref<any[]>([])
+const selection = ref<any[]>([])
 const runtime = ref<any>({})
 const filters = reactive({ status: 'open' })
+const selectedIds = computed(() => selection.value.map(item => item.id))
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 const pad = (value: any) => String(value ?? 0).padStart(2, '0')
@@ -119,6 +127,19 @@ const handleAlert = async (row: any, action: 'read' | 'resolve' | 'ignore' | 're
   const label = ({ read: '标记已读', resolve: '标记已处理', ignore: '忽略预警', reopen: '重新打开' }[action])
   await handleNetdiskQualityAlert(row.id, action, `${label}：质量预警列表页处理`)
   ElMessage.success(label)
+  await loadData()
+}
+
+const handleSelectionChange = (rows: any[]) => {
+  selection.value = rows
+}
+
+const batchHandle = async (action: 'read' | 'resolve' | 'ignore') => {
+  if (!selectedIds.value.length) return
+  const label = ({ read: '批量已读', resolve: '批量已处理', ignore: '批量忽略' }[action])
+  const data = await batchHandleNetdiskQualityAlerts(selectedIds.value, action, `${label}：质量预警列表页处理`)
+  ElMessage.success(`${label} ${data.handled || 0} 条`)
+  selection.value = []
   await loadData()
 }
 
@@ -170,5 +191,10 @@ onMounted(loadData)
   gap: 12px;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.selected-count {
+  color: #697386;
+  font-size: 13px;
 }
 </style>

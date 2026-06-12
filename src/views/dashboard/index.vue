@@ -5,6 +5,14 @@
       <el-button :loading="seedLoading" @click="seedDemo">生成演示数据</el-button>
       <span class="stamp">更新时间：{{ formatTime(data?.generated_at) }}</span>
     </div>
+    <el-alert
+      v-if="data?.quality_stats_runtime?.status === 'failed'"
+      class="runtime-alert"
+      type="error"
+      show-icon
+      :closable="false"
+      :title="`质量统计任务失败：${data?.quality_stats_runtime?.last_error || '未知错误'}`"
+    />
 
     <section class="metric-grid">
       <div class="metric-card">
@@ -61,8 +69,8 @@
           <span>待追缴记录</span>
         </button>
         <button class="task danger" @click="scrollToQuality">
-          <b>{{ n(data?.workbench?.quality_alerts) }}</b>
-          <span>资源质量预警</span>
+          <b>{{ n(data?.workbench?.quality_review_pool ?? data?.workbench?.quality_alerts) }}</b>
+          <span>待复核资源</span>
         </button>
       </div>
       <div v-if="data?.resource_quality_alerts?.length" class="alert-grid">
@@ -117,6 +125,7 @@
         <h2>资源质量榜</h2>
         <div class="head-actions">
           <span>投诉多、恢复多、解锁多的资源优先排查</span>
+          <el-segmented v-model="qualityRange" :options="qualityRangeOptions" @change="loadQualityRankings" />
           <el-segmented v-model="qualityFilter" :options="qualityFilterOptions" @change="loadQualityRankings" />
         </div>
       </div>
@@ -201,6 +210,7 @@ const data = ref<any>(null)
 const qualityRankings = ref<any[]>([])
 const qualityPanelRef = ref<HTMLElement | null>(null)
 const pointSourceRange = ref<'today' | '7d'>('today')
+const qualityRange = ref<'today' | '7d' | 'all'>('7d')
 const qualityFilter = ref<'all' | 'hidden' | 'high_report' | 'high_unlock'>('all')
 const pointSourceOptions = [
   { label: '今日', value: 'today' },
@@ -211,6 +221,11 @@ const qualityFilterOptions = [
   { label: '隐藏资源', value: 'hidden' },
   { label: '高投诉', value: 'high_report' },
   { label: '高解锁', value: 'high_unlock' },
+]
+const qualityRangeOptions = [
+  { label: '今日', value: 'today' },
+  { label: '7日', value: '7d' },
+  { label: '全历史', value: 'all' },
 ]
 
 const n = (value: any) => Number(value || 0).toLocaleString()
@@ -248,7 +263,7 @@ const alertTypeText = (value: string) => ({
 const loadData = async () => {
   loading.value = true
   try {
-    data.value = await getOpsDashboard(pointSourceRange.value)
+    data.value = await getOpsDashboard(pointSourceRange.value, qualityRange.value)
     if (qualityFilter.value === 'all') {
       qualityRankings.value = data.value?.resource_quality_rankings || []
     } else {
@@ -264,7 +279,7 @@ const loadData = async () => {
 const loadQualityRankings = async () => {
   qualityLoading.value = true
   try {
-    const result = await getNetdiskResourceQuality({ filter: qualityFilter.value, page_size: 20 })
+    const result = await getNetdiskResourceQuality({ filter: qualityFilter.value, range: qualityRange.value, page_size: 20 })
     qualityRankings.value = result.rankings || []
   } catch (error: any) {
     ElMessage.error(error.message || '资源质量榜加载失败')
@@ -300,6 +315,10 @@ onMounted(loadData)
 .stamp {
   color: #697386;
   font-size: 13px;
+}
+
+.runtime-alert {
+  margin-bottom: 14px;
 }
 
 .metric-grid {
