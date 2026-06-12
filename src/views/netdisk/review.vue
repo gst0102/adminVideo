@@ -10,6 +10,7 @@
             <el-option label="确认失效" value="invalid_confirmed" />
           </el-select>
           <el-button type="primary" :loading="loading.uploads" @click="loadUploads">刷新</el-button>
+          <el-button :loading="seedLoading" @click="seedDemoData">生成演示数据</el-button>
         </div>
 
         <el-table v-loading="loading.uploads" :data="uploads" border stripe>
@@ -179,6 +180,7 @@ import {
   restoreNetdiskResource,
   reviewNetdiskRepair,
   reviewNetdiskUpload,
+  seedNetdiskReviewDemo,
   updateNetdiskAuditConfig,
 } from '@/utils/api'
 
@@ -188,6 +190,7 @@ const repairs = ref<any[]>([])
 const resources = ref<any[]>([])
 const riskRecords = ref<any[]>([])
 const loading = reactive({ uploads: false, repairs: false, resources: false, risks: false, config: false })
+const seedLoading = ref(false)
 const uploadFilters = reactive({ status: 'pending' })
 const repairFilters = reactive({ status: 'pending', mode: '' })
 const resourceFilters = reactive<{ active: boolean | undefined; keyword: string }>({ active: false, keyword: '' })
@@ -214,7 +217,7 @@ const loadUploads = async () => {
     const data = await getNetdiskUploads({ status: uploadFilters.status || undefined, page_size: 100 })
     uploads.value = data.uploads || []
   } catch (error: any) {
-    ElMessage.error(error.message || '上传列表加载失败')
+    ElMessage.error(buildErrorMessage(error, '上传列表加载失败，请确认后端 8000 已启动'))
   } finally {
     loading.uploads = false
   }
@@ -230,7 +233,7 @@ const loadRepairs = async () => {
     })
     repairs.value = data.repairs || []
   } catch (error: any) {
-    ElMessage.error(error.message || '补链/投诉列表加载失败')
+    ElMessage.error(buildErrorMessage(error, '补链/投诉列表加载失败，请确认后端 8000 已启动'))
   } finally {
     loading.repairs = false
   }
@@ -246,7 +249,7 @@ const loadResources = async () => {
     })
     resources.value = data.resources || []
   } catch (error: any) {
-    ElMessage.error(error.message || '资源列表加载失败')
+    ElMessage.error(buildErrorMessage(error, '资源列表加载失败，请确认后端 8000 已启动'))
   } finally {
     loading.resources = false
   }
@@ -258,7 +261,7 @@ const loadRisks = async () => {
     const data = await getNetdiskRiskRecords({ status: riskFilters.status || undefined, page_size: 100 })
     riskRecords.value = data.risk_records || []
   } catch (error: any) {
-    ElMessage.error(error.message || '待追缴列表加载失败')
+    ElMessage.error(buildErrorMessage(error, '待追缴列表加载失败，请确认后端 8000 已启动'))
   } finally {
     loading.risks = false
   }
@@ -269,7 +272,7 @@ const loadConfig = async () => {
   try {
     Object.assign(config, await getNetdiskAuditConfig())
   } catch (error: any) {
-    ElMessage.error(error.message || '配置加载失败')
+    ElMessage.error(buildErrorMessage(error, '配置加载失败，请确认后端 8000 已启动'))
   } finally {
     loading.config = false
   }
@@ -281,9 +284,22 @@ const saveConfig = async () => {
     await updateNetdiskAuditConfig({ ...config })
     ElMessage.success('网盘审核规则已保存')
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    ElMessage.error(buildErrorMessage(error, '保存失败'))
   } finally {
     loading.config = false
+  }
+}
+
+const seedDemoData = async () => {
+  seedLoading.value = true
+  try {
+    await seedNetdiskReviewDemo()
+    ElMessage.success('演示数据已生成')
+    await Promise.all([loadUploads(), loadRepairs(), loadResources(), loadRisks()])
+  } catch (error: any) {
+    ElMessage.error(buildErrorMessage(error, '生成演示数据失败，请确认后端以开发模式启动'))
+  } finally {
+    seedLoading.value = false
   }
 }
 
@@ -334,6 +350,12 @@ const handleTabChange = () => {
 
 const actionLabel = (action: string) => ({ approve: '通过', reject: '拒绝', 'confirm-invalid': '确认失效' }[action] || action)
 const statusText = (status: string) => ({ pending: '待审核', approved: '已通过', rejected: '已拒绝', invalid_confirmed: '确认失效' }[status] || status)
+const buildErrorMessage = (error: any, fallback: string) => {
+  const raw = error?.message || ''
+  if (raw.includes('status code 500')) return `${fallback}：接口返回 500`
+  if (raw.includes('Network Error')) return `${fallback}：网络不可用`
+  return raw || fallback
+}
 type TagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
 const statusType = (status: string): TagType => (
   { pending: 'warning', approved: 'success', rejected: 'danger', invalid_confirmed: 'info' }[status] || 'info'

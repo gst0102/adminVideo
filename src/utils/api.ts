@@ -225,6 +225,10 @@ export async function updateNetdiskAuditConfig(configData: any): Promise<any> {
   return http.put('/admin/netdisk/audit-config', { type: 'netdisk_audit_config', config_data: configData })
 }
 
+export async function seedNetdiskReviewDemo(): Promise<any> {
+  return http.post('/admin/netdisk/dev-seed')
+}
+
 export async function getUserGrowthStats(days: number = 7): Promise<any> {
   return http.get('/admin/dashboard', { params: { days } })
 }
