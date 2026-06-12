@@ -37,7 +37,9 @@
       <el-input v-model="dialog.note" type="textarea" :rows="4" placeholder="填写处理备注" />
       <template #footer>
         <el-button @click="dialog.visible = false">取消</el-button>
-        <el-button type="primary" :loading="dialog.loading" @click="submitAction">确认</el-button>
+        <el-button :type="dialog.action === 'waive' ? 'warning' : 'primary'" :loading="dialog.loading" @click="submitAction">
+          {{ dialog.action === 'waive' ? '人工关闭' : '确认扣除' }}
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -46,7 +48,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { collectNetdiskRiskRecord, getNetdiskRiskRecords, waiveNetdiskRiskRecord } from '@/utils/api'
 
 const loading = ref(false)
@@ -77,12 +79,27 @@ const openAction = (row: any, action: 'collect' | 'waive') => {
   dialog.row = row
   dialog.action = action
   dialog.note = ''
-  dialog.title = action === 'collect' ? `追缴扣除 ${row.points_due} 分` : '人工关闭待追缴'
+  dialog.title = action === 'collect' ? `追缴扣除 ${row.points_due} 分` : '人工关闭待追缴（不扣分）'
   dialog.visible = true
 }
 
 const submitAction = async () => {
   if (!dialog.row) return
+  if (dialog.action === 'waive') {
+    try {
+      await ElMessageBox.confirm(
+        '人工关闭只会把这条待追缴记录标记为已处理，不会扣除用户积分。请确认这不是误点。',
+        '确认人工关闭',
+        {
+          confirmButtonText: '确认关闭',
+          cancelButtonText: '再检查一下',
+          type: 'warning',
+        },
+      )
+    } catch {
+      return
+    }
+  }
   dialog.loading = true
   try {
     if (dialog.action === 'collect') {

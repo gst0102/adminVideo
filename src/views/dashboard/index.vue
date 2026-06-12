@@ -76,8 +76,11 @@
 
     <section class="source-panel">
       <div class="section-head">
-        <h2>今日积分来源分布</h2>
-        <span>按流水 source / change_type 聚合</span>
+        <h2>{{ pointSourceRange === 'today' ? '今日积分来源分布' : '7日积分来源分布' }}</h2>
+        <div class="head-actions">
+          <span>按流水 source / change_type 聚合</span>
+          <el-segmented v-model="pointSourceRange" :options="pointSourceOptions" @change="loadData" />
+        </div>
       </div>
       <el-table :data="data?.point_sources || []" border stripe>
         <el-table-column prop="source" label="来源" width="130">
@@ -93,6 +96,38 @@
               <span>{{ n(row.points) }}</span>
               <i :style="{ width: barWidth(Math.abs(row.points), sourceMax) }" />
             </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <section class="quality-panel">
+      <div class="section-head">
+        <h2>资源质量榜</h2>
+        <span>投诉多、恢复多、解锁多的资源优先排查</span>
+      </div>
+      <el-table :data="data?.resource_quality_rankings || []" border stripe>
+        <el-table-column label="资源" min-width="260" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="resource-title">
+              <strong>{{ row.title }}</strong>
+              <span>{{ row.category }} · {{ row.pan }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="reports" label="投诉" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.reports > 0 ? 'danger' : 'info'">{{ n(row.reports) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="restores" label="恢复" width="90" align="center" />
+        <el-table-column prop="unlocks" label="解锁" width="90" align="center" />
+        <el-table-column prop="favorites" label="收藏" width="90" align="center" />
+        <el-table-column prop="downloads" label="获取" width="90" align="center" />
+        <el-table-column prop="score" label="关注度" width="100" align="center" />
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.is_active ? 'success' : 'warning'">{{ row.is_active ? '上架' : '隐藏' }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -140,6 +175,11 @@ const router = useRouter()
 const loading = ref(false)
 const seedLoading = ref(false)
 const data = ref<any>(null)
+const pointSourceRange = ref<'today' | '7d'>('today')
+const pointSourceOptions = [
+  { label: '今日', value: 'today' },
+  { label: '7日', value: '7d' },
+]
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-')
@@ -170,7 +210,7 @@ const changeTypeText = (value: string) => ({
 const loadData = async () => {
   loading.value = true
   try {
-    data.value = await getOpsDashboard()
+    data.value = await getOpsDashboard(pointSourceRange.value)
   } catch (error: any) {
     ElMessage.error(error.message || '运营看板加载失败，请确认后端 8000 已启动')
   } finally {
@@ -217,7 +257,8 @@ onMounted(loadData)
 .workbench,
 .activity,
 .trend-panel,
-.source-panel {
+.source-panel,
+.quality-panel {
   background: #fff;
   border: 1px solid #e3e8ef;
   border-radius: 8px;
@@ -247,7 +288,8 @@ onMounted(loadData)
 .workbench,
 .activity,
 .trend-panel,
-.source-panel {
+.source-panel,
+.quality-panel {
   margin-top: 18px;
   padding: 18px;
 }
@@ -268,6 +310,28 @@ onMounted(loadData)
 .section-head span {
   color: #8a96a8;
   font-size: 13px;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resource-title {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.resource-title strong {
+  color: #172033;
+  font-weight: 700;
+}
+
+.resource-title span {
+  color: #697386;
+  font-size: 12px;
 }
 
 .task-grid {

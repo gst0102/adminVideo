@@ -49,12 +49,12 @@ export interface AuditConfig {
   auto_hide_on_report: boolean
 }
 
-export async function pingOpsDashboard(): Promise<any> {
-  return http.get('/admin/netdisk/ops-dashboard')
+export async function pingOpsDashboard(pointsRange: 'today' | '7d' = 'today'): Promise<any> {
+  return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
 }
 
-export async function getOpsDashboard(): Promise<any> {
-  return http.get('/admin/netdisk/ops-dashboard')
+export async function getOpsDashboard(pointsRange: 'today' | '7d' = 'today'): Promise<any> {
+  return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
 }
 
 export async function getNetdiskUploads(params: NetdiskListParams = {}): Promise<any> {
