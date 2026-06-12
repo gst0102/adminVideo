@@ -69,6 +69,14 @@ export async function getNetdiskResourceQualityDetail(id: string): Promise<any> 
   return http.get(`/admin/netdisk/resource-quality/${id}`)
 }
 
+export async function handleNetdiskQualityAlert(id: string, action: 'read' | 'resolve' | 'ignore' | 'reopen', note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/resource-quality/alerts/${id}/${action}`, { note })
+}
+
+export async function refreshNetdiskQualityStats(): Promise<any> {
+  return http.post('/admin/netdisk/resource-quality/refresh-stats', {})
+}
+
 export async function getNetdiskUploads(params: NetdiskListParams = {}): Promise<any> {
   return http.get('/admin/netdisk/uploads', { params })
 }

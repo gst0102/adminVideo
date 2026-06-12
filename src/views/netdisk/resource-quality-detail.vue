@@ -3,6 +3,9 @@
     <div class="toolbar">
       <el-button @click="router.back()">返回</el-button>
       <el-button type="primary" :loading="loading" @click="loadData">刷新</el-button>
+      <el-button :loading="refreshingStats" @click="refreshStats">刷新统计</el-button>
+      <el-button @click="router.push('/review?tab=reports')">去投诉审核</el-button>
+      <el-button v-if="detail?.resource && !detail.resource.is_active" type="success" :loading="actionLoading" @click="restoreResource">恢复上架</el-button>
     </div>
 
     <section class="panel">
@@ -47,6 +50,58 @@
 
     <section class="panel">
       <div class="section-head">
+        <h2>质量预警处理</h2>
+        <span>已处理或忽略后不再反复出现在看板待处理</span>
+      </div>
+      <el-table v-loading="loading" :data="detail?.alerts || []" border stripe>
+        <el-table-column prop="last_triggered_at" label="触发时间" width="160">
+          <template #default="{ row }">{{ formatTime(row.last_triggered_at) }}</template>
+        </el-table-column>
+        <el-table-column prop="type" label="类型" width="140">
+          <template #default="{ row }">{{ alertTypeText(row.type) }}</template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag :type="alertStatusType(row.status)">{{ alertStatusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="message" label="说明" min-width="260" show-overflow-tooltip />
+        <el-table-column prop="note" label="处理备注" min-width="220" show-overflow-tooltip />
+        <el-table-column label="操作" width="210" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 'open'" type="primary" link @click="handleAlert(row, 'read')">已读</el-button>
+            <el-button v-if="['open', 'read'].includes(row.status)" type="success" link @click="handleAlert(row, 'resolve')">已处理</el-button>
+            <el-button v-if="['open', 'read'].includes(row.status)" type="warning" link @click="handleAlert(row, 'ignore')">忽略</el-button>
+            <el-button v-if="['resolved', 'ignored'].includes(row.status)" type="primary" link @click="handleAlert(row, 'reopen')">重开</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>7 日质量趋势</h2>
+        <span>判断是偶发还是持续恶化</span>
+      </div>
+      <el-table v-loading="loading" :data="detail?.trends || []" border stripe>
+        <el-table-column prop="date" label="日期" width="120" />
+        <el-table-column prop="reports" label="投诉" width="90" align="center" />
+        <el-table-column prop="unlocks" label="解锁" width="90" align="center" />
+        <el-table-column prop="unlock_users" label="解锁用户" width="100" align="center" />
+        <el-table-column prop="restores" label="恢复" width="90" align="center" />
+        <el-table-column prop="score" label="关注度" min-width="180">
+          <template #default="{ row }">
+            <div class="bar-line">
+              <span>{{ n(row.score) }}</span>
+              <i :style="{ width: trendWidth(row.score) }" />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
         <h2>投诉记录</h2>
         <span>{{ n(detail?.reports?.length) }} 条</span>
       </div>
@@ -62,6 +117,12 @@
         <el-table-column prop="note" label="投诉说明" min-width="260" show-overflow-tooltip />
         <el-table-column prop="audit_note" label="处理备注" min-width="220" show-overflow-tooltip />
         <el-table-column prop="user_id" label="用户ID" min-width="220" show-overflow-tooltip />
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 'pending'" type="warning" link @click="reviewReport(row, 'confirm-invalid')">确认失效</el-button>
+            <el-button v-if="row.status === 'pending'" type="primary" link @click="reviewReport(row, 'reject')">撤销</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </section>
 
@@ -118,12 +179,20 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
-import { getNetdiskResourceQualityDetail } from '@/utils/api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  getNetdiskResourceQualityDetail,
+  handleNetdiskQualityAlert,
+  refreshNetdiskQualityStats,
+  restoreNetdiskResource,
+  reviewNetdiskRepair,
+} from '@/utils/api'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
+const actionLoading = ref(false)
+const refreshingStats = ref(false)
 const detail = ref<any>(null)
 
 const n = (value: any) => Number(value || 0).toLocaleString()
@@ -131,6 +200,10 @@ const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:
 const shortTime = (time?: string) => (time ? dayjs(time).format('MM-DD HH:mm') : '暂无')
 const levelText = (value?: string) => ({ normal: '普通', featured: '精选', official: '官方' }[value || ''] || value || '-')
 const statusText = (value: string) => ({ pending: '待核验', approved: '已确认', rejected: '已撤销' }[value] || value)
+const alertTypeText = (value: string) => ({ high_report: '高投诉', unlock_report_burst: '高解锁高投诉' }[value] || value)
+const alertStatusText = (value: string) => ({ open: '待处理', read: '已读', resolved: '已处理', ignored: '已忽略' }[value] || value)
+type TagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
+const alertStatusType = (value: string): TagType => ({ open: 'danger', read: 'warning', resolved: 'success', ignored: 'info' }[value] || 'info') as TagType
 const actionText = (value: string) => ({
   report_confirm: '投诉确认',
   report_reject: '投诉撤销',
@@ -138,6 +211,8 @@ const actionText = (value: string) => ({
   upload_confirm_invalid: '上传失效',
   repair_confirm_invalid: '补链失效',
 }[value] || value)
+const trendMax = () => Math.max(...(detail.value?.trends || []).map((item: any) => Number(item.score || 0)), 1)
+const trendWidth = (value: number) => `${Math.max(6, Math.round((Number(value || 0) / trendMax()) * 100))}%`
 
 const loadData = async () => {
   loading.value = true
@@ -148,6 +223,57 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const refreshStats = async () => {
+  refreshingStats.value = true
+  try {
+    await refreshNetdiskQualityStats()
+    ElMessage.success('质量统计已刷新')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '刷新统计失败')
+  } finally {
+    refreshingStats.value = false
+  }
+}
+
+const restoreResource = async () => {
+  if (!detail.value?.resource) return
+  await ElMessageBox.confirm(`确认恢复上架「${detail.value.resource.title}」？`, '恢复上架', { type: 'warning' })
+  actionLoading.value = true
+  try {
+    await restoreNetdiskResource(detail.value.resource.id, '资源质量详情页恢复上架')
+    ElMessage.success('资源已恢复')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '恢复失败')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+const reviewReport = async (row: any, action: 'confirm-invalid' | 'reject') => {
+  const label = action === 'confirm-invalid' ? '确认失效' : '撤销投诉'
+  await ElMessageBox.confirm(`确认对这条投诉执行「${label}」？`, label, { type: 'warning' })
+  actionLoading.value = true
+  try {
+    await reviewNetdiskRepair(row.id, action, `资源质量详情页${label}`)
+    ElMessage.success('处理完成')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '处理失败')
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+const handleAlert = async (row: any, action: 'read' | 'resolve' | 'ignore' | 'reopen') => {
+  const label = ({ read: '标记已读', resolve: '标记已处理', ignore: '忽略预警', reopen: '重新打开' }[action])
+  const note = action === 'read' ? '' : `${label}：资源质量详情页处理`
+  await handleNetdiskQualityAlert(row.id, action, note)
+  ElMessage.success(label)
+  await loadData()
 }
 
 onMounted(loadData)
@@ -221,6 +347,25 @@ onMounted(loadData)
 
 .metric.warning strong {
   color: #b45309;
+}
+
+.bar-line {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-line span {
+  color: #344054;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-line i {
+  display: block;
+  height: 8px;
+  background: #0f766e;
+  border-radius: 999px;
 }
 
 @media (max-width: 1100px) {
