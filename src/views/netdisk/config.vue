@@ -10,6 +10,18 @@
       <el-form-item label="投诉隐藏阈值">
         <el-input-number v-model="config.report_hide_threshold" :min="1" :step="1" />
       </el-form-item>
+      <el-form-item label="质量榜高投诉阈值">
+        <el-input-number v-model="config.quality_high_report_threshold" :min="1" :step="1" />
+      </el-form-item>
+      <el-form-item label="质量榜高解锁阈值">
+        <el-input-number v-model="config.quality_high_unlock_threshold" :min="1" :step="1" />
+      </el-form-item>
+      <el-form-item label="24h预警投诉阈值">
+        <el-input-number v-model="config.quality_burst_report_threshold" :min="1" :step="1" />
+      </el-form-item>
+      <el-form-item label="24h预警解锁阈值">
+        <el-input-number v-model="config.quality_burst_unlock_threshold" :min="1" :step="1" />
+      </el-form-item>
       <el-form-item label="失效处罚倍数">
         <el-input-number v-model="config.invalid_penalty_multiplier" :min="1" :step="1" />
       </el-form-item>
@@ -36,6 +48,10 @@ const config = reactive<AuditConfig>({
   upload_reward_points: 5,
   repair_reward_points: 5,
   report_hide_threshold: 3,
+  quality_high_report_threshold: 3,
+  quality_high_unlock_threshold: 5,
+  quality_burst_report_threshold: 1,
+  quality_burst_unlock_threshold: 3,
   invalid_penalty_multiplier: 1,
   auto_hide_on_report: true,
 })

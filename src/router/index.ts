@@ -32,6 +32,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '资源库', icon: 'Files' },
       },
       {
+        path: 'resource-quality/:id',
+        name: 'ResourceQualityDetail',
+        component: () => import('@/views/netdisk/resource-quality-detail.vue'),
+        meta: { title: '资源质量详情', icon: 'Files' },
+      },
+      {
         path: 'risks',
         name: 'Risks',
         component: () => import('@/views/netdisk/risk.vue'),

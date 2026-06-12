@@ -45,6 +45,10 @@ export interface AuditConfig {
   upload_reward_points: number
   repair_reward_points: number
   report_hide_threshold: number
+  quality_high_report_threshold: number
+  quality_high_unlock_threshold: number
+  quality_burst_report_threshold: number
+  quality_burst_unlock_threshold: number
   invalid_penalty_multiplier: number
   auto_hide_on_report: boolean
 }
@@ -55,6 +59,14 @@ export async function pingOpsDashboard(pointsRange: 'today' | '7d' = 'today'): P
 
 export async function getOpsDashboard(pointsRange: 'today' | '7d' = 'today'): Promise<any> {
   return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
+}
+
+export async function getNetdiskResourceQuality(params: { filter?: string; page_size?: number } = {}): Promise<any> {
+  return http.get('/admin/netdisk/resource-quality', { params })
+}
+
+export async function getNetdiskResourceQualityDetail(id: string): Promise<any> {
+  return http.get(`/admin/netdisk/resource-quality/${id}`)
 }
 
 export async function getNetdiskUploads(params: NetdiskListParams = {}): Promise<any> {

@@ -60,6 +60,17 @@
           <b>{{ n(data?.workbench?.open_risk_records) }}</b>
           <span>待追缴记录</span>
         </button>
+        <button class="task danger" @click="scrollToQuality">
+          <b>{{ n(data?.workbench?.quality_alerts) }}</b>
+          <span>资源质量预警</span>
+        </button>
+      </div>
+      <div v-if="data?.resource_quality_alerts?.length" class="alert-grid">
+        <button v-for="item in data.resource_quality_alerts" :key="`${item.type}-${item.resource_id}`" class="alert-card" @click="openQualityDetail(item.resource_id)">
+          <el-tag :type="item.level === 'danger' ? 'danger' : 'warning'">{{ alertTypeText(item.type) }}</el-tag>
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.message }}</span>
+        </button>
       </div>
     </section>
 
@@ -101,18 +112,21 @@
       </el-table>
     </section>
 
-    <section class="quality-panel">
+    <section ref="qualityPanelRef" class="quality-panel">
       <div class="section-head">
         <h2>资源质量榜</h2>
-        <span>投诉多、恢复多、解锁多的资源优先排查</span>
+        <div class="head-actions">
+          <span>投诉多、恢复多、解锁多的资源优先排查</span>
+          <el-segmented v-model="qualityFilter" :options="qualityFilterOptions" @change="loadQualityRankings" />
+        </div>
       </div>
-      <el-table :data="data?.resource_quality_rankings || []" border stripe>
+      <el-table v-loading="qualityLoading" :data="qualityRankings" border stripe>
         <el-table-column label="资源" min-width="260" show-overflow-tooltip>
           <template #default="{ row }">
-            <div class="resource-title">
+            <button class="resource-title link-title" @click="openQualityDetail(row.resource_id)">
               <strong>{{ row.title }}</strong>
               <span>{{ row.category }} · {{ row.pan }}</span>
-            </div>
+            </button>
           </template>
         </el-table-column>
         <el-table-column prop="reports" label="投诉" width="90" align="center">
@@ -122,12 +136,20 @@
         </el-table-column>
         <el-table-column prop="restores" label="恢复" width="90" align="center" />
         <el-table-column prop="unlocks" label="解锁" width="90" align="center" />
+        <el-table-column prop="unlock_users" label="解锁用户" width="100" align="center" />
+        <el-table-column prop="recent_reports_24h" label="24h投诉" width="100" align="center" />
+        <el-table-column prop="recent_unlocks_24h" label="24h解锁" width="100" align="center" />
         <el-table-column prop="favorites" label="收藏" width="90" align="center" />
         <el-table-column prop="downloads" label="获取" width="90" align="center" />
         <el-table-column prop="score" label="关注度" width="100" align="center" />
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_active ? 'success' : 'warning'">{{ row.is_active ? '上架' : '隐藏' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="openQualityDetail(row.resource_id)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -169,21 +191,33 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
-import { getOpsDashboard, seedNetdiskReviewDemo } from '@/utils/api'
+import { getNetdiskResourceQuality, getOpsDashboard, seedNetdiskReviewDemo } from '@/utils/api'
 
 const router = useRouter()
 const loading = ref(false)
 const seedLoading = ref(false)
+const qualityLoading = ref(false)
 const data = ref<any>(null)
+const qualityRankings = ref<any[]>([])
+const qualityPanelRef = ref<HTMLElement | null>(null)
 const pointSourceRange = ref<'today' | '7d'>('today')
+const qualityFilter = ref<'all' | 'hidden' | 'high_report' | 'high_unlock'>('all')
 const pointSourceOptions = [
   { label: '今日', value: 'today' },
   { label: '7日', value: '7d' },
+]
+const qualityFilterOptions = [
+  { label: '全部', value: 'all' },
+  { label: '隐藏资源', value: 'hidden' },
+  { label: '高投诉', value: 'high_report' },
+  { label: '高解锁', value: 'high_unlock' },
 ]
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-')
 const go = (path: string) => router.push(path)
+const openQualityDetail = (id: string) => router.push(`/resource-quality/${id}`)
+const scrollToQuality = () => qualityPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 const trendMax = computed(() => {
   const trends = data.value?.trends || []
   return {
@@ -206,15 +240,36 @@ const changeTypeText = (value: string) => ({
   earn: '签到获得',
   ad_bonus: '广告奖励',
 }[value] || value)
+const alertTypeText = (value: string) => ({
+  high_report: '高投诉',
+  unlock_report_burst: '高解锁高投诉',
+}[value] || value)
 
 const loadData = async () => {
   loading.value = true
   try {
     data.value = await getOpsDashboard(pointSourceRange.value)
+    if (qualityFilter.value === 'all') {
+      qualityRankings.value = data.value?.resource_quality_rankings || []
+    } else {
+      await loadQualityRankings()
+    }
   } catch (error: any) {
     ElMessage.error(error.message || '运营看板加载失败，请确认后端 8000 已启动')
   } finally {
     loading.value = false
+  }
+}
+
+const loadQualityRankings = async () => {
+  qualityLoading.value = true
+  try {
+    const result = await getNetdiskResourceQuality({ filter: qualityFilter.value, page_size: 20 })
+    qualityRankings.value = result.rankings || []
+  } catch (error: any) {
+    ElMessage.error(error.message || '资源质量榜加载失败')
+  } finally {
+    qualityLoading.value = false
   }
 }
 
@@ -336,7 +391,7 @@ onMounted(loadData)
 
 .task-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -358,6 +413,50 @@ onMounted(loadData)
 
 .task span {
   color: #344054;
+}
+
+.task.danger b {
+  color: #b42318;
+}
+
+.alert-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.alert-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.alert-card strong {
+  color: #172033;
+}
+
+.alert-card span {
+  color: #8a4b10;
+  font-size: 13px;
+}
+
+.link-title {
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.link-title strong {
+  color: #0f766e;
 }
 
 .bar-line {
@@ -385,7 +484,8 @@ onMounted(loadData)
 
 @media (max-width: 1100px) {
   .metric-grid,
-  .task-grid {
+  .task-grid,
+  .alert-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
