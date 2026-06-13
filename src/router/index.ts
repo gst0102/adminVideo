@@ -11,13 +11,19 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/layout/index.vue'),
-    redirect: '/dashboard',
+    redirect: '/ops-center',
     children: [
       {
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
         meta: { title: '运营看板', icon: 'DataAnalysis' },
+      },
+      {
+        path: 'ops-center',
+        name: 'OpsCenter',
+        component: () => import('@/views/netdisk/ops-center.vue'),
+        meta: { title: '待处理中心', icon: 'BellFilled' },
       },
       {
         path: 'review',
@@ -54,6 +60,18 @@ const routes: RouteRecordRaw[] = [
         name: 'QualityReviewPool',
         component: () => import('@/views/netdisk/quality-review-pool.vue'),
         meta: { title: '待复核池', icon: 'CircleCheck' },
+      },
+      {
+        path: 'collected-resources',
+        name: 'CollectedResources',
+        component: () => import('@/views/netdisk/collected-resources.vue'),
+        meta: { title: '采集待审核池', icon: 'Download' },
+      },
+      {
+        path: 'feedbacks',
+        name: 'Feedbacks',
+        component: () => import('@/views/netdisk/feedbacks.vue'),
+        meta: { title: '问题反馈', icon: 'ChatDotRound' },
       },
       {
         path: 'logs',

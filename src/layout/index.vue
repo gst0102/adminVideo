@@ -10,6 +10,13 @@
       </div>
 
       <el-menu :default-active="activeMenu" class="menu" router>
+        <el-menu-item index="/ops-center">
+          <el-icon><BellFilled /></el-icon>
+          <span class="menu-label">
+            <span>待处理中心</span>
+            <span v-if="adminStore.pendingTotal > 0" class="menu-badge">{{ badgeText }}</span>
+          </span>
+        </el-menu-item>
         <el-menu-item index="/dashboard">
           <el-icon><DataAnalysis /></el-icon>
           <span>运营看板</span>
@@ -34,6 +41,14 @@
           <el-icon><CircleCheck /></el-icon>
           <span>待复核池</span>
         </el-menu-item>
+        <el-menu-item index="/collected-resources">
+          <el-icon><Download /></el-icon>
+          <span>采集待审核池</span>
+        </el-menu-item>
+        <el-menu-item index="/feedbacks">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>问题反馈</span>
+        </el-menu-item>
         <el-menu-item index="/logs">
           <el-icon><Tickets /></el-icon>
           <span>操作日志</span>
@@ -49,7 +64,7 @@
       <el-header class="topbar">
         <div>
           <div class="page-title">{{ currentTitle }}</div>
-          <div class="page-subtitle">处理资源审核、投诉、积分风控和运营增长</div>
+          <div class="page-subtitle">{{ currentSubtitle }}</div>
         </div>
         <div class="topbar-actions">
           <el-tag :type="adminStore.connectionStatus === 'connected' ? 'success' : 'danger'" effect="plain">
@@ -89,6 +104,13 @@ const adminStore = useAdminStore()
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => String(route.meta?.title || '运营后台'))
+const currentSubtitle = computed(() => {
+  if (route.path === '/ops-center') return '先处理积分异常、资源投诉和用户反馈，避免漏单'
+  if (route.path === '/dashboard') return '查看资源增长、积分流动和质量趋势'
+  if (route.path === '/collected-resources') return '处理采集资源的低置信、重复和新增网盘补充'
+  return '处理资源审核、投诉、积分风控和运营增长'
+})
+const badgeText = computed(() => (adminStore.pendingTotal > 99 ? '99+' : String(adminStore.pendingTotal)))
 
 const handleCommand = (command: string) => {
   if (command === 'logout') {
@@ -147,6 +169,27 @@ onMounted(() => {
 .menu :deep(.el-menu-item.is-active) {
   color: #fff;
   background: #0f766e;
+}
+
+.menu-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+.menu-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
 }
 
 .topbar {

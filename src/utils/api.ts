@@ -153,6 +153,43 @@ export async function getNetdiskResources(params: NetdiskListParams = {}): Promi
   return http.get('/admin/netdisk/resources', { params })
 }
 
+export async function getNetdiskFeedbacks(params: NetdiskListParams & { feedback_type?: string; feedback_id?: string } = {}): Promise<any> {
+  return http.get('/admin/netdisk/feedbacks', { params })
+}
+
+export async function getNetdiskCrawlerStatus(): Promise<any> {
+  return http.get('/admin/netdisk/crawlers/status')
+}
+
+export async function runNetdiskCrawler(crawlerKey: string): Promise<any> {
+  return http.post(`/admin/netdisk/crawlers/${crawlerKey}/run`, {})
+}
+
+export async function getNetdiskCollectedResources(
+  params: NetdiskListParams & { bucket?: string } = {},
+): Promise<any> {
+  return http.get('/admin/netdisk/collected-resources', { params })
+}
+
+export async function handleNetdiskCollectedResource(
+  id: string,
+  action: 'approve' | 'skip' | 'merge',
+  note = '',
+): Promise<any> {
+  return http.post(`/admin/netdisk/collected-resources/${id}/${action}`, { note })
+}
+
+export async function replyNetdiskFeedback(
+  id: string,
+  status: 'pending' | 'processing' | 'resolved' | 'rejected',
+  note = '',
+): Promise<any> {
+  return http.post(`/admin/netdisk/feedbacks/${id}/reply`, {
+    result_action: status,
+    note,
+  })
+}
+
 export async function restoreNetdiskResource(id: string, note = ''): Promise<any> {
   return http.post(`/admin/netdisk/resources/${id}/restore`, { note })
 }
