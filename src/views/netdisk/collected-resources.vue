@@ -3,9 +3,12 @@
     <div class="header">
       <div>
         <h2>采集待审核池</h2>
-        <p>处理 LinuxDo 低置信、疑似重复和新增网盘补充资源。</p>
+        <p>处理 LinuxDo、本地文件和其他来源导入的低置信、疑似重复和新增网盘补充资源。</p>
       </div>
-      <el-button type="primary" :loading="loading" @click="loadList">刷新</el-button>
+      <div class="header-actions">
+        <el-button type="success" @click="openImport">批量导入</el-button>
+        <el-button type="primary" :loading="loading" @click="loadList">刷新</el-button>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -38,7 +41,7 @@
       type="info"
       show-icon
       :closable="false"
-      title="通过会创建正式资源；跳过不会入库；合并适合新增网盘补充或确认重复的候选。"
+      title="通过会创建正式资源；跳过不会入库；合并适合新增网盘补充或确认重复的候选。批量导入支持 JSON/CSV 文件。"
     />
 
     <el-table v-loading="loading" :data="items" border stripe>
@@ -104,6 +107,39 @@
         @size-change="reloadFirstPage"
       />
     </div>
+
+    <el-dialog v-model="importDialog.visible" title="批量导入资源" width="520px">
+      <div class="import-form">
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          title="文件导入后会自动分类、去重；高置信资源可自动入库，其余进入待审核池。"
+        />
+        <el-form label-width="86px">
+          <el-form-item label="来源">
+            <el-select v-model="importDialog.sourceType" class="source-select">
+              <el-option label="本地整理" value="manual" />
+              <el-option label="LinuxDo" value="linuxdo" />
+              <el-option label="其他来源" value="import" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="文件">
+            <input ref="fileInputRef" type="file" accept=".json,.csv,application/json,text/csv" @change="onFileChange" />
+            <div class="file-tip">支持 JSON/CSV，字段可用：title/name、link/url、pan/netdisk、code/extract_code。</div>
+          </el-form-item>
+          <el-form-item v-if="importDialog.file" label="已选择">
+            <el-tag type="success" effect="plain">{{ importDialog.file.name }}</el-tag>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="importDialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="importDialog.loading" :disabled="!importDialog.file" @click="submitImport">
+          开始导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -111,7 +147,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getNetdiskCollectedResources, handleNetdiskCollectedResource } from '@/utils/api'
+import { getNetdiskCollectedResources, handleNetdiskCollectedResource, importNetdiskCollectedResources } from '@/utils/api'
 
 type ActionType = 'approve' | 'skip' | 'merge'
 
@@ -121,10 +157,17 @@ const items = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const filters = reactive({
   bucket: 'all',
   status: 'pending',
   keyword: '',
+})
+const importDialog = reactive({
+  visible: false,
+  loading: false,
+  sourceType: 'manual',
+  file: null as File | null,
 })
 
 const loadList = async () => {
@@ -179,6 +222,33 @@ const handle = async (row: any, action: ActionType) => {
   }
 }
 
+const openImport = () => {
+  importDialog.visible = true
+  importDialog.file = null
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
+const onFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  importDialog.file = target.files?.[0] || null
+}
+
+const submitImport = async () => {
+  if (!importDialog.file) return
+  importDialog.loading = true
+  try {
+    const data = await importNetdiskCollectedResources(importDialog.file, importDialog.sourceType)
+    ElMessage.success(`导入完成：自动入库 ${data.auto_published || 0} 条，待审核 ${data.review_required || 0} 条，跳过 ${data.skipped || 0} 条`)
+    importDialog.visible = false
+    filters.status = 'pending'
+    await reloadFirstPage()
+  } catch (error: any) {
+    ElMessage.error(error.message || '导入失败')
+  } finally {
+    importDialog.loading = false
+  }
+}
+
 const duplicateTag = (value: string) => {
   if (value === 'same_link' || value === 'same_title_same_pan') return 'danger'
   if (value === 'supplement_pan') return 'warning'
@@ -217,6 +287,11 @@ onMounted(loadList)
   margin-bottom: 16px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .header h2 {
   margin: 0;
   color: #172033;
@@ -247,6 +322,22 @@ onMounted(loadList)
 
 .keyword-input {
   width: 260px;
+}
+
+.import-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.source-select {
+  width: 180px;
+}
+
+.file-tip {
+  margin-top: 8px;
+  color: #697386;
+  font-size: 12px;
 }
 
 .notice {

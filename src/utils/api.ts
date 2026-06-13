@@ -179,6 +179,22 @@ export async function handleNetdiskCollectedResource(
   return http.post(`/admin/netdisk/collected-resources/${id}/${action}`, { note })
 }
 
+export async function importNetdiskCollectedResources(file: File, sourceType = 'manual'): Promise<any> {
+  const form = new FormData()
+  form.append('file', file)
+  const resp = await axios.post(`${API_BASE}/admin/netdisk/collected-resources/import`, form, {
+    params: { source_type: sourceType },
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'X-Admin-Role': localStorage.getItem('admin_role') || 'operator',
+    },
+    timeout: 60000,
+  })
+  const data = resp.data
+  if (data.code === 200 || data.code === 0) return data.data ?? data
+  throw new Error(data.msg || data.message || '导入失败')
+}
+
 export async function replyNetdiskFeedback(
   id: string,
   status: 'pending' | 'processing' | 'resolved' | 'rejected',
