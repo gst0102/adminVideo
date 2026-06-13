@@ -108,6 +108,57 @@
       />
     </div>
 
+    <div class="record-panel">
+      <div class="panel-header">
+        <div>
+          <h3>导入记录</h3>
+          <p>查看每次文件导入结果，失败行可下载后修正再导入。</p>
+        </div>
+        <el-button :loading="batchLoading" @click="loadImportBatches">刷新记录</el-button>
+      </div>
+      <el-table v-loading="batchLoading" :data="importBatches" border stripe>
+        <el-table-column prop="filename" label="文件名" min-width="190" show-overflow-tooltip />
+        <el-table-column label="来源" width="90">
+          <template #default="{ row }">{{ sourceTypeText(row.source_type) }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="96" align="center">
+          <template #default="{ row }">
+            <el-tag :type="batchStatusTag(row.status)" size="small">{{ row.status_text }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="总行数" prop="total_rows" width="82" align="center" />
+        <el-table-column label="自动入库" prop="auto_published_count" width="88" align="center" />
+        <el-table-column label="待审核" prop="review_required_count" width="82" align="center" />
+        <el-table-column label="跳过" prop="skipped_count" width="72" align="center" />
+        <el-table-column label="失败" prop="failed_count" width="72" align="center" />
+        <el-table-column label="导入时间" width="145">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="132" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              type="danger"
+              link
+              :disabled="!row.failed_count"
+              :loading="downloadingBatchId === row.id"
+              @click="downloadFailed(row)"
+            >
+              下载失败明细
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="batchPage"
+          v-model:page-size="batchPageSize"
+          layout="total, prev, pager, next"
+          :total="batchTotal"
+          @current-change="loadImportBatches"
+        />
+      </div>
+    </div>
+
     <el-dialog v-model="importDialog.visible" title="批量导入资源" width="520px">
       <div class="import-form">
         <el-alert
@@ -147,7 +198,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getNetdiskCollectedResources, handleNetdiskCollectedResource, importNetdiskCollectedResources } from '@/utils/api'
+import {
+  downloadNetdiskImportFailedRows,
+  getNetdiskCollectedResources,
+  getNetdiskImportBatches,
+  handleNetdiskCollectedResource,
+  importNetdiskCollectedResources,
+} from '@/utils/api'
 
 type ActionType = 'approve' | 'skip' | 'merge'
 
@@ -157,6 +214,12 @@ const items = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
+const batchLoading = ref(false)
+const importBatches = ref<any[]>([])
+const batchTotal = ref(0)
+const batchPage = ref(1)
+const batchPageSize = ref(10)
+const downloadingBatchId = ref('')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const filters = reactive({
   bucket: 'all',
@@ -186,6 +249,22 @@ const loadList = async () => {
     ElMessage.error(error.message || '采集待审核池加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+const loadImportBatches = async () => {
+  batchLoading.value = true
+  try {
+    const data = await getNetdiskImportBatches({
+      page: batchPage.value,
+      page_size: batchPageSize.value,
+    })
+    importBatches.value = data.import_batches || []
+    batchTotal.value = Number(data.total || 0)
+  } catch (error: any) {
+    ElMessage.error(error.message || '导入记录加载失败')
+  } finally {
+    batchLoading.value = false
   }
 }
 
@@ -242,11 +321,38 @@ const submitImport = async () => {
     importDialog.visible = false
     filters.status = 'pending'
     await reloadFirstPage()
+    batchPage.value = 1
+    await loadImportBatches()
   } catch (error: any) {
     ElMessage.error(error.message || '导入失败')
   } finally {
     importDialog.loading = false
   }
+}
+
+const downloadFailed = async (row: any) => {
+  if (!row.failed_count) return
+  downloadingBatchId.value = row.id
+  try {
+    await downloadNetdiskImportFailedRows(row.id, `导入失败明细-${row.filename || row.id}.csv`)
+  } catch (error: any) {
+    ElMessage.error(error.message || '失败明细下载失败')
+  } finally {
+    downloadingBatchId.value = ''
+  }
+}
+
+const sourceTypeText = (value: string) => {
+  if (value === 'linuxdo') return 'LinuxDo'
+  if (value === 'manual') return '本地整理'
+  if (value === 'kdocs') return 'KDocs'
+  return '其他来源'
+}
+
+const batchStatusTag = (value: string) => {
+  if (value === 'success') return 'success'
+  if (value === 'partial_failed') return 'warning'
+  return 'danger'
 }
 
 const duplicateTag = (value: string) => {
@@ -270,7 +376,10 @@ const statusTag = (value: string) => {
 
 const formatTime = (time: string) => (time ? dayjs(time).format('MM-DD HH:mm') : '-')
 
-onMounted(loadList)
+onMounted(() => {
+  loadList()
+  loadImportBatches()
+})
 </script>
 
 <style scoped>
@@ -342,6 +451,33 @@ onMounted(loadList)
 
 .notice {
   margin-bottom: 12px;
+}
+
+.record-panel {
+  padding: 16px;
+  margin-top: 10px;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 17px;
+}
+
+.panel-header p {
+  margin: 5px 0 0;
+  color: #697386;
+  font-size: 12px;
 }
 
 .title-cell {

@@ -195,6 +195,28 @@ export async function importNetdiskCollectedResources(file: File, sourceType = '
   throw new Error(data.msg || data.message || '导入失败')
 }
 
+export async function getNetdiskImportBatches(
+  params: { source_type?: string; status?: string; page?: number; page_size?: number } = {},
+): Promise<any> {
+  return http.get('/admin/netdisk/collected-resources/import-batches', { params })
+}
+
+export async function downloadNetdiskImportFailedRows(batchId: string, filename = ''): Promise<void> {
+  const resp = await axios.get(`${API_BASE}/admin/netdisk/collected-resources/import-batches/${batchId}/failed.csv`, {
+    responseType: 'blob',
+    headers: {
+      'X-Admin-Role': localStorage.getItem('admin_role') || 'operator',
+    },
+  })
+  const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename || `导入失败明细-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function replyNetdiskFeedback(
   id: string,
   status: 'pending' | 'processing' | 'resolved' | 'rejected',
