@@ -165,6 +165,10 @@ export async function runNetdiskCrawler(crawlerKey: string): Promise<any> {
   return http.post(`/admin/netdisk/crawlers/${crawlerKey}/run`, {})
 }
 
+export async function cleanupCrawlerBrowsers(): Promise<any> {
+  return http.post('/admin/netdisk/crawlers/maintenance/cleanup-browsers', {})
+}
+
 export async function getNetdiskCollectedResources(
   params: NetdiskListParams & { bucket?: string } = {},
 ): Promise<any> {

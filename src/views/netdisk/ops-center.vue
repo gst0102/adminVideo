@@ -36,11 +36,35 @@
           <p>查看 KDocs、LinuxDo 的定时规则；必要时手动同步最新一批资源。</p>
         </div>
         <div class="crawler-head-actions">
+          <el-tag :type="worker.reachable ? 'success' : 'danger'" effect="plain">
+            {{ worker.reachable ? 'worker在线' : 'worker离线' }}
+          </el-tag>
+          <el-tag :type="Number(browserGuard.browser_processes || 0) > Number(browserGuard.browser_process_limit || 0) ? 'danger' : 'success'" effect="plain">
+            浏览器进程 {{ browserGuard.browser_processes || 0 }}/{{ browserGuard.browser_process_limit || 0 }}
+          </el-tag>
           <el-tag type="success" effect="plain">浏览器并发 {{ browserGuard.concurrency }}</el-tag>
           <el-tag :type="browserGuard.force_cleanup ? 'success' : 'warning'" effect="plain">
             {{ browserGuard.force_cleanup ? '自动清理已开' : '自动清理关闭' }}
           </el-tag>
+          <el-button :loading="cleaningBrowsers" @click="cleanupBrowsers">清理浏览器进程</el-button>
           <el-button link type="primary" @click="goCollectedResources">进入待审核池</el-button>
+        </div>
+      </div>
+      <div class="worker-strip">
+        <div>
+          <span class="strip-label">超时</span>
+          <strong>{{ worker.task_timeout_seconds || 0 }} 秒</strong>
+        </div>
+        <div>
+          <span class="strip-label">运行中</span>
+          <strong>{{ (worker.running_tasks || []).join('、') || '无' }}</strong>
+        </div>
+        <div>
+          <span class="strip-label">熔断</span>
+          <strong>{{ (worker.blocked_tasks || []).join('、') || '无' }}</strong>
+        </div>
+        <div v-if="!worker.reachable" class="worker-error">
+          {{ worker.error || 'worker 状态不可用' }}
         </div>
       </div>
       <el-table v-loading="crawlerLoading" :data="crawlers" border stripe>
@@ -54,6 +78,14 @@
         </el-table-column>
         <el-table-column prop="published_count" label="已入库" width="90" align="center" />
         <el-table-column prop="pending_count" label="待审核" width="90" align="center" />
+        <el-table-column label="worker状态" min-width="170">
+          <template #default="{ row }">
+            <div class="task-status">
+              <el-tag :type="taskStatus(row.key).type" size="small">{{ taskStatus(row.key).label }}</el-tag>
+              <span v-if="taskStatus(row.key).time">{{ taskStatus(row.key).time }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="note" label="规则说明" min-width="220" show-overflow-tooltip />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
@@ -198,6 +230,7 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { useAdminStore } from '@/store'
 import {
+  cleanupCrawlerBrowsers,
   getNetdiskCrawlerStatus,
   getNetdiskFeedbacks,
   getNetdiskRepairs,
@@ -207,6 +240,7 @@ import {
 } from '@/utils/api'
 
 type ModuleKey = 'feedbacks' | 'uploads' | 'repairs' | 'reports' | 'risks'
+type TagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
 
 const router = useRouter()
 const adminStore = useAdminStore()
@@ -218,8 +252,10 @@ const reports = ref<any[]>([])
 const riskRecords = ref<any[]>([])
 const crawlerLoading = ref(false)
 const runningCrawler = ref('')
+const cleaningBrowsers = ref(false)
 const crawlers = ref<any[]>([])
-const browserGuard = ref({ concurrency: 1, force_cleanup: true })
+const browserGuard = ref({ concurrency: 1, force_cleanup: true, browser_processes: 0, browser_process_limit: 0 })
+const worker = ref<any>({ reachable: false, status: 'unknown', tasks: [], running_tasks: [], blocked_tasks: [] })
 const totals = ref<Record<ModuleKey, number>>({
   feedbacks: 0,
   uploads: 0,
@@ -261,7 +297,8 @@ const loadAll = async () => {
       risks: Number(riskData.total ?? riskRecords.value.length),
     }
     crawlers.value = crawlerData.crawlers || []
-    browserGuard.value = crawlerData.browser_guard || { concurrency: 1, force_cleanup: true }
+    browserGuard.value = crawlerData.browser_guard || { concurrency: 1, force_cleanup: true, browser_processes: 0, browser_process_limit: 0 }
+    worker.value = crawlerData.worker || { reachable: false, status: 'unknown', tasks: [], running_tasks: [], blocked_tasks: [] }
     adminStore.setPendingCounts(totals.value)
   } catch (error: any) {
     ElMessage.error(error.message || '待处理数据加载失败，请确认后端服务状态')
@@ -282,6 +319,31 @@ const runCrawler = async (key: string) => {
   } finally {
     runningCrawler.value = ''
   }
+}
+
+const cleanupBrowsers = async () => {
+  cleaningBrowsers.value = true
+  try {
+    const result = await cleanupCrawlerBrowsers()
+    ElMessage.success(`清理完成：${result?.before ?? 0} -> ${result?.after ?? 0}`)
+    await loadAll()
+  } catch (error: any) {
+    ElMessage.error(error.message || '浏览器进程清理失败')
+  } finally {
+    cleaningBrowsers.value = false
+  }
+}
+
+const taskStatus = (key: string) => {
+  const task = (worker.value.tasks || []).find((item: any) => item.key === key)
+  if (!task) return { type: 'info' as TagType, label: '未上报', time: '' }
+  if (task.running) return { type: 'warning' as TagType, label: '运行中', time: formatTime(task.last_started_at) }
+  if (task.breaker_until && dayjs(task.breaker_until).isAfter(dayjs())) {
+    return { type: 'danger' as TagType, label: `熔断 ${task.consecutive_failures || 0}次`, time: formatTime(task.breaker_until) }
+  }
+  if (task.last_error) return { type: 'danger' as TagType, label: `失败 ${task.consecutive_failures || 0}次`, time: formatTime(task.last_finished_at) }
+  if (task.last_success_at) return { type: 'success' as TagType, label: '正常', time: formatTime(task.last_success_at) }
+  return { type: 'info' as TagType, label: '待运行', time: '' }
 }
 
 const goModule = (key: ModuleKey) => {
@@ -450,6 +512,43 @@ onMounted(loadAll)
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.worker-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.worker-strip strong {
+  display: block;
+  margin-top: 4px;
+  color: #172033;
+  font-size: 13px;
+}
+
+.strip-label {
+  color: #697386;
+  font-size: 12px;
+}
+
+.worker-error {
+  grid-column: 1 / -1;
+  color: #c2410c;
+  font-size: 12px;
+}
+
+.task-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #697386;
+  font-size: 12px;
 }
 
 .columns {
