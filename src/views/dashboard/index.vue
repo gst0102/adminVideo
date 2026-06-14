@@ -23,12 +23,12 @@
       <div class="metric-card">
         <span>今日发放积分</span>
         <strong>{{ n(data?.points?.today_gain_points) }}</strong>
-        <small>{{ n(data?.points?.today_gain_users) }} 人获得</small>
+        <small>{{ n(data?.points?.today_gain_users) }} 人获得 · 调账 +{{ n(data?.points?.admin_adjust_gain_points) }}</small>
       </div>
       <div class="metric-card">
         <span>今日消耗积分</span>
         <strong>{{ n(data?.points?.today_spend_points) }}</strong>
-        <small>{{ n(data?.points?.today_spend_users) }} 人消耗</small>
+        <small>{{ n(data?.points?.today_spend_users) }} 人消耗 · 调账 -{{ n(data?.points?.admin_adjust_spend_points) }}</small>
       </div>
       <div class="metric-card">
         <span>当前可用积分</span>
@@ -48,15 +48,15 @@
         <span>按运营动作优先级排序</span>
       </div>
       <div class="task-grid">
-        <button class="task" @click="go('/review')">
+        <button class="task" @click="go('/ops-center')">
           <b>{{ n(data?.workbench?.pending_uploads) }}</b>
           <span>待审核上传</span>
         </button>
-        <button class="task" @click="go('/review?tab=repairs')">
+        <button class="task" @click="go('/ops-center')">
           <b>{{ n(data?.workbench?.pending_repairs) }}</b>
           <span>待审核补链</span>
         </button>
-        <button class="task" @click="go('/review?tab=reports')">
+        <button class="task" @click="go('/ops-center')">
           <b>{{ n(data?.workbench?.pending_reports) }}</b>
           <span>待核验投诉</span>
         </button>
@@ -64,7 +64,7 @@
           <b>{{ n(data?.workbench?.hidden_resources) }}</b>
           <span>隐藏资源</span>
         </button>
-        <button class="task" @click="go('/risks')">
+        <button class="task" @click="go('/ops-center')">
           <b>{{ n(data?.workbench?.open_risk_records) }}</b>
           <span>待追缴记录</span>
         </button>
@@ -167,7 +167,7 @@
     <section class="trend-panel">
       <div class="section-head">
         <h2>7 日趋势</h2>
-        <span>用户增长、积分流动、上传/投诉</span>
+        <span>用户增长、业务积分流动、上传/投诉</span>
       </div>
       <el-table :data="data?.trends || []" border stripe>
         <el-table-column prop="date" label="日期" width="120" />

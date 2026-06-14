@@ -65,12 +65,34 @@ export interface AuditConfig {
   auto_hide_on_report: boolean
 }
 
+export interface AdminUserListParams {
+  keyword?: string
+  is_vip?: boolean
+  page?: number
+  page_size?: number
+}
+
 export async function pingOpsDashboard(pointsRange: 'today' | '7d' = 'today'): Promise<any> {
   return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
 }
 
 export async function getOpsDashboard(pointsRange: 'today' | '7d' = 'today', qualityRange: 'today' | '7d' | 'all' = '7d'): Promise<any> {
   return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange, quality_range: qualityRange } })
+}
+
+export async function getAdminUsers(params: AdminUserListParams = {}): Promise<any> {
+  return http.get('/admin/users', { params })
+}
+
+export async function getAdminUserDetail(id: string): Promise<any> {
+  return http.get(`/admin/users/${id}`)
+}
+
+export async function adjustAdminUserPoints(
+  id: string,
+  payload: { action: 'add' | 'consume'; points: number; note?: string },
+): Promise<any> {
+  return http.post(`/admin/users/${id}/points-adjust`, payload)
 }
 
 export async function getNetdiskResourceQuality(params: { filter?: string; range?: string; page_size?: number } = {}): Promise<any> {
@@ -151,6 +173,14 @@ export async function reviewNetdiskRepair(
 
 export async function getNetdiskResources(params: NetdiskListParams = {}): Promise<any> {
   return http.get('/admin/netdisk/resources', { params })
+}
+
+export async function previewHiddenDuplicateCleanup(): Promise<any> {
+  return http.get('/admin/netdisk/resources/cleanup-hidden-duplicates/preview')
+}
+
+export async function cleanupHiddenDuplicateResources(note = ''): Promise<any> {
+  return http.post('/admin/netdisk/resources/cleanup-hidden-duplicates', { note })
 }
 
 export async function getNetdiskFeedbacks(params: NetdiskListParams & { feedback_type?: string; feedback_id?: string } = {}): Promise<any> {

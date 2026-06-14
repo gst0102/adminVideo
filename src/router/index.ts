@@ -20,6 +20,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '运营看板', icon: 'DataAnalysis' },
       },
       {
+        path: 'users',
+        name: 'Users',
+        component: () => import('@/views/users/index.vue'),
+        meta: { title: '用户看板', icon: 'User' },
+      },
+      {
         path: 'ops-center',
         name: 'OpsCenter',
         component: () => import('@/views/netdisk/ops-center.vue'),

@@ -21,6 +21,10 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>运营看板</span>
         </el-menu-item>
+        <el-menu-item index="/users">
+          <el-icon><User /></el-icon>
+          <span>用户看板</span>
+        </el-menu-item>
         <el-menu-item index="/review">
           <el-icon><FolderChecked /></el-icon>
           <span>审核中心</span>
