@@ -72,6 +72,13 @@ export interface AdminUserListParams {
   page_size?: number
 }
 
+export interface AdminPaymentOrderParams {
+  keyword?: string
+  status?: 'pending' | 'paid' | 'closed' | 'refunded'
+  page?: number
+  page_size?: number
+}
+
 export async function pingOpsDashboard(pointsRange: 'today' | '7d' = 'today'): Promise<any> {
   return http.get('/admin/netdisk/ops-dashboard', { params: { points_range: pointsRange } })
 }
@@ -93,6 +100,17 @@ export async function adjustAdminUserPoints(
   payload: { action: 'add' | 'consume'; points: number; note?: string },
 ): Promise<any> {
   return http.post(`/admin/users/${id}/points-adjust`, payload)
+}
+
+export async function getAdminPaymentOrders(params: AdminPaymentOrderParams = {}): Promise<any> {
+  return http.get('/admin/payments/orders', { params })
+}
+
+export async function reconcileAdminPaymentOrders(payload: { lookback_minutes?: number; limit?: number } = {}): Promise<any> {
+  return http.post('/admin/payments/reconcile', {
+    lookback_minutes: payload.lookback_minutes ?? 180,
+    limit: payload.limit ?? 50,
+  })
 }
 
 export async function getNetdiskResourceQuality(params: { filter?: string; range?: string; page_size?: number } = {}): Promise<any> {

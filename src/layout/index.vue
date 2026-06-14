@@ -25,6 +25,10 @@
           <el-icon><User /></el-icon>
           <span>用户看板</span>
         </el-menu-item>
+        <el-menu-item index="/payments">
+          <el-icon><Wallet /></el-icon>
+          <span>充值订单</span>
+        </el-menu-item>
         <el-menu-item index="/review">
           <el-icon><FolderChecked /></el-icon>
           <span>审核中心</span>
@@ -111,6 +115,7 @@ const currentTitle = computed(() => String(route.meta?.title || '运营后台'))
 const currentSubtitle = computed(() => {
   if (route.path === '/ops-center') return '先处理积分异常、资源投诉和用户反馈，避免漏单'
   if (route.path === '/dashboard') return '查看资源增长、积分流动和质量趋势'
+  if (route.path === '/payments') return '查看充值订单、到账流水，并手动补单'
   if (route.path === '/collected-resources') return '处理采集资源的低置信、重复和新增网盘补充'
   return '处理资源审核、投诉、积分风控和运营增长'
 })
