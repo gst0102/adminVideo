@@ -159,13 +159,13 @@
       </div>
     </div>
 
-    <el-dialog v-model="importDialog.visible" title="批量导入资源" width="520px">
+    <el-dialog v-model="importDialog.visible" title="批量导入资源" width="760px">
       <div class="import-form">
         <el-alert
           type="info"
           :closable="false"
           show-icon
-          title="文件导入后会自动分类、去重；高置信资源可自动入库，其余进入待审核池。"
+          title="本地爬虫或人工整理后，把 CSV/JSON 文件上传到这里；系统会自动分类、去重，高置信资源可自动入库，其余进入待审核池。"
         />
         <el-form label-width="86px">
           <el-form-item label="来源">
@@ -177,12 +177,35 @@
           </el-form-item>
           <el-form-item label="文件">
             <input ref="fileInputRef" type="file" accept=".json,.csv,application/json,text/csv" @change="onFileChange" />
-            <div class="file-tip">支持 JSON/CSV，字段可用：title/name、link/url、pan/netdisk、code/extract_code。</div>
+            <div class="file-tip">支持 CSV / JSON；至少填写标题和链接。CSV 建议直接下载模板后照着填。</div>
           </el-form-item>
           <el-form-item v-if="importDialog.file" label="已选择">
             <el-tag type="success" effect="plain">{{ importDialog.file.name }}</el-tag>
           </el-form-item>
         </el-form>
+        <div class="template-panel">
+          <div class="template-head">
+            <div>
+              <h4>CSV 模板格式</h4>
+              <p>LinuxDo 本地爬完后，把结果整理成下面这些列再上传。</p>
+            </div>
+            <el-button type="primary" plain @click="downloadCsvTemplate">下载 CSV 模板</el-button>
+          </div>
+          <el-table :data="templateRows" border size="small">
+            <el-table-column prop="title" label="title 标题" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="link" label="link 网盘链接" min-width="210" show-overflow-tooltip />
+            <el-table-column prop="pan" label="pan 网盘" width="90" />
+            <el-table-column prop="extract_code" label="extract_code 提取码" width="150" />
+            <el-table-column prop="category" label="category 分类" width="120" />
+            <el-table-column prop="tags" label="tags 标签" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="source_url" label="source_url 原帖" min-width="180" show-overflow-tooltip />
+          </el-table>
+          <div class="template-notes">
+            <span>必填：title、link</span>
+            <span>推荐：pan、extract_code、category、tags、source_url</span>
+            <span>tags 多个标签用竖线分隔，例如：影视|4K|更新中</span>
+          </div>
+        </div>
       </div>
       <template #footer>
         <el-button @click="importDialog.visible = false">取消</el-button>
@@ -232,6 +255,17 @@ const importDialog = reactive({
   sourceType: 'manual',
   file: null as File | null,
 })
+const templateRows = [
+  {
+    title: '海贼王 202 集 1080P 更新',
+    link: 'https://pan.quark.cn/s/example',
+    pan: '夸克',
+    extract_code: 'abcd',
+    category: '动漫',
+    tags: '动漫|1080P|更新中',
+    source_url: 'https://linux.do/t/example',
+  },
+]
 
 const loadList = async () => {
   loading.value = true
@@ -310,6 +344,24 @@ const openImport = () => {
 const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   importDialog.file = target.files?.[0] || null
+}
+
+const csvEscape = (value: string) => `"${String(value || '').replace(/"/g, '""')}"`
+
+const downloadCsvTemplate = () => {
+  const headers = ['title', 'link', 'pan', 'extract_code', 'unzip_code', 'category', 'tags', 'source_url', 'description']
+  const rows = [
+    ['海贼王 202 集 1080P 更新', 'https://pan.quark.cn/s/example', '夸克', 'abcd', '', '动漫', '动漫|1080P|更新中', 'https://linux.do/t/example', 'LinuxDo 本地整理导入'],
+    ['某电影 4K 蓝光', 'https://pan.baidu.com/s/example?pwd=1120', '百度', '1120', '', '电影', '电影|4K', 'https://linux.do/t/example-2', ''],
+  ]
+  const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '网盘资源导入模板.csv'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const submitImport = async () => {
@@ -445,6 +497,42 @@ onMounted(() => {
 
 .file-tip {
   margin-top: 8px;
+  color: #697386;
+  font-size: 12px;
+}
+
+.template-panel {
+  padding: 12px;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.template-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.template-head h4 {
+  margin: 0;
+  color: #172033;
+  font-size: 15px;
+}
+
+.template-head p {
+  margin: 4px 0 0;
+  color: #697386;
+  font-size: 12px;
+}
+
+.template-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
   color: #697386;
   font-size: 12px;
 }
