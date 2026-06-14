@@ -8,6 +8,22 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 
+const staleChunkPattern = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i
+window.addEventListener('vite:preloadError', () => {
+  if (sessionStorage.getItem('admin_chunk_reload') === '1') return
+  sessionStorage.setItem('admin_chunk_reload', '1')
+  window.location.reload()
+})
+window.addEventListener('unhandledrejection', (event) => {
+  const message = event.reason?.message || String(event.reason || '')
+  if (!staleChunkPattern.test(message) || sessionStorage.getItem('admin_chunk_reload') === '1') return
+  sessionStorage.setItem('admin_chunk_reload', '1')
+  window.location.reload()
+})
+window.addEventListener('load', () => {
+  sessionStorage.removeItem('admin_chunk_reload')
+})
+
 const app = createApp(App)
 
 // 注册所有图标
