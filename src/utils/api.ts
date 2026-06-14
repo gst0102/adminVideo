@@ -65,6 +65,28 @@ export interface AuditConfig {
   auto_hide_on_report: boolean
 }
 
+export interface PointsRuleConfig {
+  display_unit: string
+  exchange_rate: number
+  checkin_base_points_normal: number
+  checkin_base_points_member: number
+  checkin_ad_bonus_min: number
+  checkin_ad_bonus_max: number
+  checkin_ad_bonus_points: number
+  game_base_points_min: number
+  game_base_points_max: number
+  game_rps_win_points: number
+  game_rps_lose_points: number
+  game_ad_multiplier: number
+}
+
+export interface TaskRuleConfig {
+  daily_game_task_limit_normal: number
+  daily_game_task_limit_member_month: number
+  daily_game_task_limit_member_quarter: number
+  daily_game_task_limit_member_year: number
+}
+
 export interface AdminUserListParams {
   keyword?: string
   is_vip?: boolean
@@ -325,6 +347,17 @@ export async function getNetdiskAuditConfig(): Promise<AuditConfig> {
 export async function updateNetdiskAuditConfig(configData: AuditConfig): Promise<any> {
   return http.put('/admin/netdisk/audit-config', {
     type: 'netdisk_audit_config',
+    config_data: configData,
+  })
+}
+
+export async function getAdminConfigs(type?: string): Promise<any> {
+  return http.get('/admin/configs', { params: type ? { type } : {} })
+}
+
+export async function updateAdminConfig(type: string, configData: Record<string, any>): Promise<any> {
+  return http.put('/admin/configs', {
+    type,
     config_data: configData,
   })
 }

@@ -1,59 +1,148 @@
 <template>
   <div class="page">
-    <el-form label-width="180px" class="config-form">
-      <el-form-item label="上传冻结奖励">
-        <el-input-number v-model="config.upload_reward_points" :min="0" :step="1" />
-      </el-form-item>
-      <el-form-item label="补链冻结奖励">
-        <el-input-number v-model="config.repair_reward_points" :min="0" :step="1" />
-      </el-form-item>
-      <el-form-item label="投诉隐藏阈值">
-        <el-input-number v-model="config.report_hide_threshold" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="质量榜高投诉阈值">
-        <el-input-number v-model="config.quality_high_report_threshold" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="质量榜高解锁阈值">
-        <el-input-number v-model="config.quality_high_unlock_threshold" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="24h预警投诉阈值">
-        <el-input-number v-model="config.quality_burst_report_threshold" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="24h预警解锁阈值">
-        <el-input-number v-model="config.quality_burst_unlock_threshold" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="自动进入待复核池">
-        <el-switch v-model="config.quality_auto_review_pool" />
-      </el-form-item>
-      <el-form-item label="高投诉自动隐藏">
-        <el-switch v-model="config.quality_auto_hide_high_report" />
-      </el-form-item>
-      <el-form-item label="短时高解锁高投诉自动隐藏">
-        <el-switch v-model="config.quality_auto_hide_burst" />
-      </el-form-item>
-      <el-form-item label="失效处罚倍数">
-        <el-input-number v-model="config.invalid_penalty_multiplier" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="达阈值自动隐藏">
-        <el-switch v-model="config.auto_hide_on_report" />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :loading="saving" @click="save">保存配置</el-button>
-        <el-button :loading="loading" @click="loadData">重载</el-button>
-      </el-form-item>
-    </el-form>
+    <div class="page-head">
+      <div>
+        <h2>规则配置</h2>
+        <p>调整资源质量、签到积分和小游戏次数。保存后后端立即按新规则执行。</p>
+      </div>
+      <el-button :loading="loading" @click="loadData">重载全部</el-button>
+    </div>
+
+    <el-tabs v-model="activeTab" class="rule-tabs">
+      <el-tab-pane label="资源质量" name="audit">
+        <el-form label-width="190px" class="config-form">
+          <el-form-item label="上传冻结奖励">
+            <el-input-number v-model="auditConfig.upload_reward_points" :min="0" :step="1" />
+          </el-form-item>
+          <el-form-item label="补链冻结奖励">
+            <el-input-number v-model="auditConfig.repair_reward_points" :min="0" :step="1" />
+          </el-form-item>
+          <el-form-item label="投诉隐藏阈值">
+            <el-input-number v-model="auditConfig.report_hide_threshold" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item label="质量榜高投诉阈值">
+            <el-input-number v-model="auditConfig.quality_high_report_threshold" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item label="质量榜高解锁阈值">
+            <el-input-number v-model="auditConfig.quality_high_unlock_threshold" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item label="24h预警投诉阈值">
+            <el-input-number v-model="auditConfig.quality_burst_report_threshold" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item label="24h预警解锁阈值">
+            <el-input-number v-model="auditConfig.quality_burst_unlock_threshold" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item label="自动进入待复核池">
+            <el-switch v-model="auditConfig.quality_auto_review_pool" />
+          </el-form-item>
+          <el-form-item label="高投诉自动隐藏">
+            <el-switch v-model="auditConfig.quality_auto_hide_high_report" />
+          </el-form-item>
+          <el-form-item label="短时高解锁高投诉自动隐藏">
+            <el-switch v-model="auditConfig.quality_auto_hide_burst" />
+          </el-form-item>
+          <el-form-item label="失效处罚倍数">
+            <el-input-number v-model="auditConfig.invalid_penalty_multiplier" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item label="达阈值自动隐藏">
+            <el-switch v-model="auditConfig.auto_hide_on_report" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingAudit" @click="saveAudit">保存资源规则</el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="签到与小游戏积分" name="points">
+        <el-alert
+          class="tip"
+          type="warning"
+          :closable="false"
+          title="积分规则会直接影响用户余额和积分流水，建议只在上线前或低峰期调整。"
+        />
+        <el-form label-width="210px" class="config-form">
+          <el-form-item label="积分单位">
+            <el-input v-model="pointsConfig.display_unit" />
+          </el-form-item>
+          <el-form-item label="提现兑换比例">
+            <el-input-number v-model="pointsConfig.exchange_rate" :min="1" :step="1" />
+            <span class="hint">积分 = 1 元</span>
+          </el-form-item>
+          <el-form-item label="普通用户签到">
+            <el-input-number v-model="pointsConfig.checkin_base_points_normal" :min="0" :step="1" />
+            <span class="hint">分/天</span>
+          </el-form-item>
+          <el-form-item label="会员用户签到">
+            <el-input-number v-model="pointsConfig.checkin_base_points_member" :min="0" :step="1" />
+            <span class="hint">分/天</span>
+          </el-form-item>
+          <el-form-item label="签到广告奖励">
+            <el-input-number v-model="pointsConfig.checkin_ad_bonus_points" :min="0" :step="1" />
+            <span class="hint">分</span>
+          </el-form-item>
+          <el-form-item label="猜拳赢局积分">
+            <el-input-number v-model="pointsConfig.game_rps_win_points" :min="0" :step="1" />
+            <span class="hint">分，完整看广告后到账</span>
+          </el-form-item>
+          <el-form-item label="猜拳输局扣分">
+            <el-input-number v-model="pointsConfig.game_rps_lose_points" :max="0" :step="1" />
+            <span class="hint">建议填负数，例如 -2</span>
+          </el-form-item>
+          <el-form-item label="小游戏广告倍数">
+            <el-input-number v-model="pointsConfig.game_ad_multiplier" :min="1" :step="1" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingPoints" @click="savePoints">保存积分规则</el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="每日任务次数" name="tasks">
+        <el-alert
+          class="tip"
+          type="info"
+          :closable="false"
+          title="这里控制小游戏每日可玩次数。普通用户当前建议保留 10 次，会员可单独放大。"
+        />
+        <el-form label-width="210px" class="config-form">
+          <el-form-item label="普通用户小游戏次数">
+            <el-input-number v-model="taskConfig.daily_game_task_limit_normal" :min="0" :step="1" />
+            <span class="hint">次/天</span>
+          </el-form-item>
+          <el-form-item label="月会员小游戏次数">
+            <el-input-number v-model="taskConfig.daily_game_task_limit_member_month" :min="0" :step="1" />
+            <span class="hint">次/天</span>
+          </el-form-item>
+          <el-form-item label="季会员小游戏次数">
+            <el-input-number v-model="taskConfig.daily_game_task_limit_member_quarter" :min="0" :step="1" />
+            <span class="hint">次/天</span>
+          </el-form-item>
+          <el-form-item label="年会员小游戏次数">
+            <el-input-number v-model="taskConfig.daily_game_task_limit_member_year" :min="0" :step="1" />
+            <span class="hint">次/天</span>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingTasks" @click="saveTasks">保存次数规则</el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getNetdiskAuditConfig, updateNetdiskAuditConfig } from '@/utils/api'
-import type { AuditConfig } from '@/utils/api'
+import { getAdminConfigs, getNetdiskAuditConfig, updateAdminConfig, updateNetdiskAuditConfig } from '@/utils/api'
+import type { AuditConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
 
+const activeTab = ref('audit')
 const loading = ref(false)
-const saving = ref(false)
-const config = reactive<AuditConfig>({
+const savingAudit = ref(false)
+const savingPoints = ref(false)
+const savingTasks = ref(false)
+
+const auditConfig = reactive<AuditConfig>({
   upload_reward_points: 5,
   repair_reward_points: 5,
   report_hide_threshold: 3,
@@ -68,10 +157,42 @@ const config = reactive<AuditConfig>({
   auto_hide_on_report: true,
 })
 
+const pointsConfig = reactive<PointsRuleConfig>({
+  display_unit: '积分',
+  exchange_rate: 100,
+  checkin_base_points_normal: 1,
+  checkin_base_points_member: 2,
+  checkin_ad_bonus_min: 1,
+  checkin_ad_bonus_max: 3,
+  checkin_ad_bonus_points: 3,
+  game_base_points_min: -2,
+  game_base_points_max: 4,
+  game_rps_win_points: 4,
+  game_rps_lose_points: -2,
+  game_ad_multiplier: 2,
+})
+
+const taskConfig = reactive<TaskRuleConfig>({
+  daily_game_task_limit_normal: 10,
+  daily_game_task_limit_member_month: 100,
+  daily_game_task_limit_member_quarter: 150,
+  daily_game_task_limit_member_year: 200,
+})
+
+const loadGenericConfigs = async () => {
+  const data = await getAdminConfigs()
+  if (data?.stage2_points_config) Object.assign(pointsConfig, data.stage2_points_config)
+  if (data?.stage2_task_config) Object.assign(taskConfig, data.stage2_task_config)
+}
+
 const loadData = async () => {
   loading.value = true
   try {
-    Object.assign(config, await getNetdiskAuditConfig())
+    const [audit] = await Promise.all([
+      getNetdiskAuditConfig(),
+      loadGenericConfigs(),
+    ])
+    Object.assign(auditConfig, audit)
   } catch (error: any) {
     ElMessage.error(error.message || '配置加载失败，请确认后端 8000 已启动')
   } finally {
@@ -79,16 +200,65 @@ const loadData = async () => {
   }
 }
 
-const save = async () => {
-  saving.value = true
+const saveAudit = async () => {
+  savingAudit.value = true
   try {
-    await updateNetdiskAuditConfig({ ...config })
-    ElMessage.success('规则配置已保存')
+    await updateNetdiskAuditConfig({ ...auditConfig })
+    ElMessage.success('资源规则已保存')
     await loadData()
   } catch (error: any) {
     ElMessage.error(error.message || '保存失败')
   } finally {
-    saving.value = false
+    savingAudit.value = false
+  }
+}
+
+const normalizePointsConfig = (): PointsRuleConfig => ({
+  ...pointsConfig,
+  display_unit: pointsConfig.display_unit || '积分',
+  exchange_rate: Number(pointsConfig.exchange_rate || 100),
+  checkin_base_points_normal: Number(pointsConfig.checkin_base_points_normal || 0),
+  checkin_base_points_member: Number(pointsConfig.checkin_base_points_member || 0),
+  checkin_ad_bonus_min: Number(pointsConfig.checkin_ad_bonus_min || 0),
+  checkin_ad_bonus_max: Number(pointsConfig.checkin_ad_bonus_max || 0),
+  checkin_ad_bonus_points: Number(pointsConfig.checkin_ad_bonus_points || 0),
+  game_base_points_min: Number(pointsConfig.game_rps_lose_points || -2),
+  game_base_points_max: Number(pointsConfig.game_rps_win_points || 4),
+  game_rps_win_points: Number(pointsConfig.game_rps_win_points || 4),
+  game_rps_lose_points: Number(pointsConfig.game_rps_lose_points || -2),
+  game_ad_multiplier: Number(pointsConfig.game_ad_multiplier || 1),
+})
+
+const savePoints = async () => {
+  savingPoints.value = true
+  try {
+    await updateAdminConfig('stage2_points_config', normalizePointsConfig())
+    ElMessage.success('积分规则已保存')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingPoints.value = false
+  }
+}
+
+const normalizeTaskConfig = (): TaskRuleConfig => ({
+  daily_game_task_limit_normal: Number(taskConfig.daily_game_task_limit_normal || 0),
+  daily_game_task_limit_member_month: Number(taskConfig.daily_game_task_limit_member_month || 0),
+  daily_game_task_limit_member_quarter: Number(taskConfig.daily_game_task_limit_member_quarter || 0),
+  daily_game_task_limit_member_year: Number(taskConfig.daily_game_task_limit_member_year || 0),
+})
+
+const saveTasks = async () => {
+  savingTasks.value = true
+  try {
+    await updateAdminConfig('stage2_task_config', normalizeTaskConfig())
+    ElMessage.success('次数规则已保存')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingTasks.value = false
   }
 }
 
@@ -103,7 +273,40 @@ onMounted(loadData)
   border-radius: 8px;
 }
 
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.page-head h2 {
+  margin: 0;
+  color: #172033;
+}
+
+.page-head p {
+  margin: 8px 0 0;
+  color: #65758b;
+}
+
+.rule-tabs {
+  max-width: 860px;
+}
+
 .config-form {
-  max-width: 560px;
+  max-width: 700px;
+  padding-top: 12px;
+}
+
+.tip {
+  margin: 10px 0 14px;
+}
+
+.hint {
+  margin-left: 10px;
+  color: #7b8794;
+  font-size: 13px;
 }
 </style>
