@@ -20,8 +20,35 @@
     <el-table v-loading="loading" :data="resources" border stripe>
       <el-table-column prop="id" label="资源ID" width="120" show-overflow-tooltip />
       <el-table-column prop="title" label="标题" min-width="260" show-overflow-tooltip />
+      <el-table-column label="网盘链接" min-width="320" show-overflow-tooltip>
+        <template #default="{ row }">
+          <div class="link-cell">
+            <el-link v-if="row.link" type="primary" :href="row.link" target="_blank" :underline="false">
+              {{ row.link }}
+            </el-link>
+            <span v-else class="muted">暂无链接</span>
+            <el-button v-if="row.link" link type="primary" @click="copyText(row.link, '链接已复制')">复制</el-button>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="category" label="分类" width="120" />
       <el-table-column prop="pan" label="网盘" width="90" />
+      <el-table-column label="提取码" width="110" align="center">
+        <template #default="{ row }">
+          <el-button v-if="row.extract_code" link type="primary" @click="copyText(row.extract_code, '提取码已复制')">
+            {{ row.extract_code }}
+          </el-button>
+          <span v-else class="muted">-</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="解压码" width="110" align="center">
+        <template #default="{ row }">
+          <el-button v-if="row.unzip_code" link type="primary" @click="copyText(row.unzip_code, '解压码已复制')">
+            {{ row.unzip_code }}
+          </el-button>
+          <span v-else class="muted">-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="level" label="等级" width="110" />
       <el-table-column prop="cost_points" label="消耗积分" width="100" align="center" />
       <el-table-column prop="downloads" label="获取" width="90" align="center" />
@@ -116,6 +143,27 @@ const filters = reactive<{ keyword: string; active: boolean | undefined; page: n
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 
+const copyText = async (text: string, message: string) => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const input = document.createElement('textarea')
+      input.value = text
+      input.setAttribute('readonly', 'readonly')
+      input.style.position = 'fixed'
+      input.style.opacity = '0'
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+    }
+    ElMessage.success(message)
+  } catch {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -209,5 +257,24 @@ onMounted(loadData)
 
 .cleanup-summary {
   margin: 14px 0;
+}
+
+.link-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.link-cell .el-link {
+  display: inline-block;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: #9aa4b2;
 }
 </style>
