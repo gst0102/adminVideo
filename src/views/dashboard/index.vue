@@ -22,12 +22,12 @@
       <div class="metric-card">
         <span>今日发放积分</span>
         <strong>{{ n(data?.points?.today_gain_points) }}</strong>
-        <small>{{ n(data?.points?.today_gain_users) }} 人获得 · 调账 +{{ n(data?.points?.admin_adjust_gain_points) }}</small>
+        <small>{{ n(data?.points?.today_gain_users) }} 人获得 · 不含后台调账</small>
       </div>
       <div class="metric-card">
         <span>今日消耗积分</span>
         <strong>{{ n(data?.points?.today_spend_points) }}</strong>
-        <small>{{ n(data?.points?.today_spend_users) }} 人消耗 · 调账 -{{ n(data?.points?.admin_adjust_spend_points) }}</small>
+        <small>{{ n(data?.points?.today_spend_users) }} 人消耗 · 不含后台调账</small>
       </div>
       <div class="metric-card">
         <span>当前可用积分</span>
@@ -96,7 +96,7 @@
       <div class="section-head">
         <h2>{{ pointSourceRange === 'today' ? '今日积分来源分布' : '7日积分来源分布' }}</h2>
         <div class="head-actions">
-          <span>按流水 source / change_type 聚合</span>
+          <span>按业务流水 source / change_type 聚合，不含后台调账</span>
           <el-segmented v-model="pointSourceRange" :options="pointSourceOptions" @change="loadData" />
         </div>
       </div>
