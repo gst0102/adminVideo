@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h2>规则配置</h2>
-        <p>调整资源质量、签到积分和小游戏次数。保存后后端立即按新规则执行。</p>
+        <p>调整资源质量、签到积分、小游戏次数和邀请返利。保存后后端立即按新规则执行。</p>
       </div>
       <el-button :loading="loading" @click="loadData">重载全部</el-button>
     </div>
@@ -126,6 +126,42 @@
           </el-form-item>
         </el-form>
       </el-tab-pane>
+
+      <el-tab-pane label="邀请返利" name="commission">
+        <el-alert
+          class="tip"
+          type="warning"
+          :closable="false"
+          title="这里直接影响会员订单后的邀请返利。会员开通走百分比返利，积分包首充固定 20 分不在这里配置。"
+        />
+        <el-form label-width="210px" class="config-form">
+          <el-form-item label="一级好友会员返利">
+            <el-input-number v-model="commissionConfig.level1_rate" :min="0" :max="100" :step="1" />
+            <span class="hint">% · 当前建议 50%</span>
+          </el-form-item>
+          <el-form-item label="二级团队会员返利">
+            <el-input-number v-model="commissionConfig.level2_rate" :min="0" :max="100" :step="1" />
+            <span class="hint">% · 当前建议 5%</span>
+          </el-form-item>
+          <el-form-item label="冻结结算天数">
+            <el-input-number v-model="commissionConfig.settlement_days" :min="0" :step="1" />
+            <span class="hint">天，0 表示不设置冻结期</span>
+          </el-form-item>
+          <el-form-item label="运营规则说明">
+            <el-input
+              v-model="commissionConfig.rules"
+              type="textarea"
+              :rows="4"
+              maxlength="300"
+              show-word-limit
+              placeholder="例如：邀请好友购买会员后，返利积分先进入冻结账户，期满后可解冻。"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingCommission" @click="saveCommission">保存邀请返利规则</el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -134,13 +170,14 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAdminConfigs, getNetdiskAuditConfig, updateAdminConfig, updateNetdiskAuditConfig } from '@/utils/api'
-import type { AuditConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
+import type { AuditConfig, CommissionRuleConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
 
 const activeTab = ref('audit')
 const loading = ref(false)
 const savingAudit = ref(false)
 const savingPoints = ref(false)
 const savingTasks = ref(false)
+const savingCommission = ref(false)
 
 const auditConfig = reactive<AuditConfig>({
   upload_reward_points: 5,
@@ -179,10 +216,18 @@ const taskConfig = reactive<TaskRuleConfig>({
   daily_game_task_limit_member_year: 200,
 })
 
+const commissionConfig = reactive<CommissionRuleConfig>({
+  level1_rate: 50,
+  level2_rate: 5,
+  settlement_days: 7,
+  rules: '邀请好友购买会员后，返利积分先进入冻结账户，期满后可解冻。',
+})
+
 const loadGenericConfigs = async () => {
   const data = await getAdminConfigs()
   if (data?.stage2_points_config) Object.assign(pointsConfig, data.stage2_points_config)
   if (data?.stage2_task_config) Object.assign(taskConfig, data.stage2_task_config)
+  if (data?.commission_settings) Object.assign(commissionConfig, data.commission_settings)
 }
 
 const loadData = async () => {
@@ -259,6 +304,26 @@ const saveTasks = async () => {
     ElMessage.error(error.message || '保存失败')
   } finally {
     savingTasks.value = false
+  }
+}
+
+const normalizeCommissionConfig = (): CommissionRuleConfig => ({
+  level1_rate: Number(commissionConfig.level1_rate || 0),
+  level2_rate: Number(commissionConfig.level2_rate || 0),
+  settlement_days: Number(commissionConfig.settlement_days || 0),
+  rules: commissionConfig.rules || '邀请好友购买会员后，返利积分先进入冻结账户，期满后可解冻。',
+})
+
+const saveCommission = async () => {
+  savingCommission.value = true
+  try {
+    await updateAdminConfig('commission_settings', normalizeCommissionConfig())
+    ElMessage.success('邀请返利规则已保存')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingCommission.value = false
   }
 }
 

@@ -87,6 +87,13 @@ export interface TaskRuleConfig {
   daily_game_task_limit_member_year: number
 }
 
+export interface CommissionRuleConfig {
+  level1_rate: number
+  level2_rate: number
+  settlement_days: number
+  rules: string
+}
+
 export interface AdminUserListParams {
   keyword?: string
   is_vip?: boolean
