@@ -13,7 +13,6 @@
         <el-option label="确认失效" value="invalid_confirmed" />
       </el-select>
       <el-button type="primary" :loading="loading" @click="loadCurrent">刷新</el-button>
-      <el-button :loading="seedLoading" @click="seedDemo">生成演示数据</el-button>
     </div>
 
     <el-alert
@@ -99,7 +98,6 @@ import {
   getNetdiskUploads,
   reviewNetdiskRepair,
   reviewNetdiskUpload,
-  seedNetdiskReviewDemo,
 } from '@/utils/api'
 
 const route = useRoute()
@@ -111,7 +109,6 @@ const filters = reactive({ status: targetUploadId.value || targetRepairId.value 
 const uploads = ref<any[]>([])
 const repairs = ref<any[]>([])
 const loading = ref(false)
-const seedLoading = ref(false)
 const dialog = reactive({
   visible: false,
   loading: false,
@@ -156,19 +153,6 @@ const loadCurrent = async () => {
     ElMessage.error(error.message || '列表加载失败，请确认后端 8000 已启动')
   } finally {
     loading.value = false
-  }
-}
-
-const seedDemo = async () => {
-  seedLoading.value = true
-  try {
-    await seedNetdiskReviewDemo()
-    ElMessage.success('演示数据已生成')
-    await loadCurrent()
-  } catch (error: any) {
-    ElMessage.error(error.message || '生成演示数据失败')
-  } finally {
-    seedLoading.value = false
   }
 }
 

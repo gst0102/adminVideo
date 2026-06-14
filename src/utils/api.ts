@@ -329,8 +329,4 @@ export async function updateNetdiskAuditConfig(configData: AuditConfig): Promise
   })
 }
 
-export async function seedNetdiskReviewDemo(): Promise<any> {
-  return http.post('/admin/netdisk/dev-seed')
-}
-
 export default http

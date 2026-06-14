@@ -2,7 +2,6 @@
   <div class="dashboard">
     <div class="toolbar">
       <el-button type="primary" :loading="loading" @click="loadData">刷新看板</el-button>
-      <el-button :loading="seedLoading" @click="seedDemo">生成演示数据</el-button>
       <span class="stamp">更新时间：{{ formatTime(data?.generated_at) }}</span>
     </div>
     <el-alert
@@ -200,11 +199,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
-import { getNetdiskResourceQuality, getOpsDashboard, seedNetdiskReviewDemo } from '@/utils/api'
+import { getNetdiskResourceQuality, getOpsDashboard } from '@/utils/api'
 
 const router = useRouter()
 const loading = ref(false)
-const seedLoading = ref(false)
 const qualityLoading = ref(false)
 const data = ref<any>(null)
 const qualityRankings = ref<any[]>([])
@@ -284,19 +282,6 @@ const loadQualityRankings = async () => {
     ElMessage.error(error.message || '资源质量榜加载失败')
   } finally {
     qualityLoading.value = false
-  }
-}
-
-const seedDemo = async () => {
-  seedLoading.value = true
-  try {
-    await seedNetdiskReviewDemo()
-    ElMessage.success('演示数据已生成')
-    await loadData()
-  } catch (error: any) {
-    ElMessage.error(error.message || '生成演示数据失败')
-  } finally {
-    seedLoading.value = false
   }
 }
 
