@@ -19,6 +19,9 @@
         style="width: 260px"
         @change="loadData"
       />
+      <el-button :type="systemOnly ? 'warning' : 'default'" @click="toggleSystemLogs">
+        系统自动处理
+      </el-button>
       <el-button type="primary" :loading="loading" @click="loadData">刷新</el-button>
       <el-button :loading="exporting" @click="exportLogs">导出CSV</el-button>
     </div>
@@ -27,7 +30,12 @@
       <el-table-column prop="created_at" label="时间" width="170">
         <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column prop="admin_name" label="管理员" width="110" />
+      <el-table-column prop="admin_name" label="管理员" width="120">
+        <template #default="{ row }">
+          <el-tag v-if="row.admin_name === 'system'" type="warning" effect="dark">系统</el-tag>
+          <span v-else>{{ row.admin_name }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="action" label="动作" width="150">
         <template #default="{ row }">{{ actionText(row.action) }}</template>
       </el-table-column>
@@ -57,6 +65,7 @@ const exporting = ref(false)
 const logs = ref<any[]>([])
 const filters = reactive({ action: '', target_type: '' })
 const dateRange = ref<string[]>([])
+const systemOnly = ref(false)
 const actionOptions = [
   { label: '上传通过', value: 'upload_approve' },
   { label: '上传拒绝', value: 'upload_reject' },
@@ -68,6 +77,7 @@ const actionOptions = [
   { label: '投诉撤销', value: 'report_reject' },
   { label: '资源恢复上架', value: 'resource_restore' },
   { label: '资源质量确认失效', value: 'resource_quality_confirm_invalid' },
+  { label: '系统自动确认失效', value: 'resource_auto_confirm_invalid' },
   { label: '资源质量继续隐藏', value: 'resource_quality_keep_hidden' },
   { label: '待追缴扣除', value: 'risk_collect' },
   { label: '待追缴关闭', value: 'risk_waive' },
@@ -91,6 +101,18 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const toggleSystemLogs = () => {
+  systemOnly.value = !systemOnly.value
+  if (systemOnly.value) {
+    filters.action = 'resource_auto_confirm_invalid'
+    filters.target_type = 'netdisk_resource'
+  } else {
+    filters.action = ''
+    filters.target_type = ''
+  }
+  loadData()
 }
 
 const exportLogs = async () => {

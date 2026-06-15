@@ -19,6 +19,9 @@
 
     <el-table v-loading="loading" :data="resources" border stripe>
       <el-table-column prop="id" label="资源ID" width="120" show-overflow-tooltip />
+      <el-table-column label="上架时间" width="150" show-overflow-tooltip>
+        <template #default="{ row }">{{ formatPublishedAt(row) }}</template>
+      </el-table-column>
       <el-table-column prop="title" label="标题" min-width="260" show-overflow-tooltip />
       <el-table-column label="网盘链接" min-width="320" show-overflow-tooltip>
         <template #default="{ row }">
@@ -58,10 +61,10 @@
           <el-tag :type="row.is_active ? 'success' : 'danger'">{{ row.is_active ? '可见' : '隐藏' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="130" fixed="right">
+      <el-table-column label="操作" width="170" fixed="right">
         <template #default="{ row }">
           <el-button v-if="!row.is_active" type="success" link @click="restore(row)">恢复上架</el-button>
-          <el-tag v-else size="small">无需处理</el-tag>
+          <el-button v-else type="danger" link @click="hide(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -116,6 +119,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   cleanupHiddenDuplicateResources,
   getNetdiskResources,
+  hideNetdiskResource,
   previewHiddenDuplicateCleanup,
   restoreNetdiskResource,
 } from '@/utils/api'
@@ -142,6 +146,19 @@ const filters = reactive<{ keyword: string; active: boolean | undefined; page: n
 })
 
 const n = (value: any) => Number(value || 0).toLocaleString()
+
+const formatPublishedAt = (row: any) => {
+  const precise = row?.published_at_precise
+  if (precise) return precise
+  const raw = row?.created_at || row?.published_at
+  if (!raw) return '-'
+
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return String(raw).replace('T', ' ').slice(0, 16)
+
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 const copyText = async (text: string, message: string) => {
   try {
@@ -192,6 +209,23 @@ const restore = async (row: any) => {
   await ElMessageBox.confirm(`确认恢复上架「${row.title}」？`, '恢复上架', { type: 'warning' })
   await restoreNetdiskResource(row.id, '后台恢复上架')
   ElMessage.success('资源已恢复')
+  await loadData()
+}
+
+const hide = async (row: any) => {
+  const result = await ElMessageBox.prompt(
+    `确认删除「${row.title}」？删除后小程序不再展示，可在隐藏资源中恢复。`,
+    '删除资源',
+    {
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      inputPlaceholder: '删除原因，例如：链接失效 / 内容不符合 / 重复资源',
+      inputValue: '后台人工删除不符合资源',
+      type: 'warning',
+    },
+  )
+  await hideNetdiskResource(row.id, result.value || '后台人工删除不符合资源')
+  ElMessage.success('资源已删除，小程序不再展示')
   await loadData()
 }
 

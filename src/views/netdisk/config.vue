@@ -19,6 +19,11 @@
           </el-form-item>
           <el-form-item label="投诉隐藏阈值">
             <el-input-number v-model="auditConfig.report_hide_threshold" :min="1" :step="1" />
+            <span class="hint">达到后可用于隐藏/质量预警</span>
+          </el-form-item>
+          <el-form-item label="自动确认失效阈值">
+            <el-input-number v-model="auditConfig.report_confirm_invalid_threshold" :min="1" :step="1" />
+            <span class="hint">不同用户投诉达到后自动下架并扣罚，当前建议 2</span>
           </el-form-item>
           <el-form-item label="质量榜高投诉阈值">
             <el-input-number v-model="auditConfig.quality_high_report_threshold" :min="1" :step="1" />
@@ -162,6 +167,59 @@
           </el-form-item>
         </el-form>
       </el-tab-pane>
+
+      <el-tab-pane label="共建计划" name="coBuild">
+        <el-alert
+          class="tip"
+          type="info"
+          :closable="false"
+          title="这里控制小程序首页跑马灯和「悦享共建计划」页面文案，奖励规则请保留“以平台审核结果为准”。"
+        />
+        <el-form label-width="170px" class="config-form">
+          <el-form-item label="活动开关">
+            <el-switch v-model="coBuildConfig.enabled" />
+          </el-form-item>
+          <el-form-item label="跑马灯文案">
+            <el-input v-model="coBuildConfig.announcement_title" maxlength="60" show-word-limit />
+          </el-form-item>
+          <el-form-item label="跳转地址">
+            <el-input v-model="coBuildConfig.announcement_jump_url" />
+          </el-form-item>
+          <el-form-item label="页面标题">
+            <el-input v-model="coBuildConfig.activity_title" />
+          </el-form-item>
+          <el-form-item label="主标题">
+            <el-input v-model="coBuildConfig.main_title" maxlength="40" show-word-limit />
+          </el-form-item>
+          <el-form-item label="副文案">
+            <el-input v-model="coBuildConfig.subtitle" type="textarea" :rows="2" maxlength="160" show-word-limit />
+          </el-form-item>
+          <el-form-item label="介绍文案">
+            <el-input v-model="coBuildConfig.intro_text" type="textarea" :rows="4" maxlength="300" show-word-limit />
+          </el-form-item>
+          <el-form-item label="奖励标题">
+            <el-input v-model="coBuildConfig.reward_title" />
+          </el-form-item>
+          <el-form-item label="奖励池文案">
+            <el-input v-model="coBuildConfig.reward_desc" />
+          </el-form-item>
+          <el-form-item label="奖励规则">
+            <el-input v-model="coBuildConfig.reward_rules" type="textarea" :rows="7" maxlength="600" show-word-limit />
+          </el-form-item>
+          <el-form-item label="主按钮文案">
+            <el-input v-model="coBuildConfig.primary_button_text" />
+          </el-form-item>
+          <el-form-item label="次按钮文案">
+            <el-input v-model="coBuildConfig.secondary_button_text" />
+          </el-form-item>
+          <el-form-item label="底部口号">
+            <el-input v-model="coBuildConfig.footer_slogan" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingCoBuild" @click="saveCoBuild">保存共建计划</el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -170,7 +228,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAdminConfigs, getNetdiskAuditConfig, updateAdminConfig, updateNetdiskAuditConfig } from '@/utils/api'
-import type { AuditConfig, CommissionRuleConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
+import type { AuditConfig, CoBuildConfig, CommissionRuleConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
 
 const activeTab = ref('audit')
 const loading = ref(false)
@@ -178,11 +236,13 @@ const savingAudit = ref(false)
 const savingPoints = ref(false)
 const savingTasks = ref(false)
 const savingCommission = ref(false)
+const savingCoBuild = ref(false)
 
 const auditConfig = reactive<AuditConfig>({
   upload_reward_points: 5,
   repair_reward_points: 5,
   report_hide_threshold: 3,
+  report_confirm_invalid_threshold: 2,
   quality_high_report_threshold: 3,
   quality_high_unlock_threshold: 5,
   quality_burst_report_threshold: 1,
@@ -223,11 +283,28 @@ const commissionConfig = reactive<CommissionRuleConfig>({
   rules: '邀请好友购买会员后，返利积分先进入冻结账户，期满后可解冻。',
 })
 
+const coBuildConfig = reactive<CoBuildConfig>({
+  enabled: true,
+  announcement_title: '早期共建用户招募中，百万积分奖励池等你来拿',
+  announcement_jump_url: '/pages/netdisk/co-build',
+  activity_title: '悦享共建计划',
+  main_title: '让每一个好建议，都被看见',
+  subtitle: '你能点进这里，说明你比较认可我们，也愿意和我们一起把悦享资源库做得更好。',
+  intro_text: '悦享资源库还在持续成长中。发现问题、提出建议、反馈体验、补充资源、完善规则，你的每一次反馈，都可能帮助更多人更快找到有价值的资源。',
+  reward_title: '早期共建用户招募中',
+  reward_desc: '百万积分奖励池等你来拿',
+  reward_rules: '有效反馈、优质建议、重大问题反馈，都有机会获得积分奖励。\n普通有效反馈：10-20积分\n优质问题反馈：20-50积分\n重大问题反馈：50-500积分\n功能建议被采纳：300-500积分\n长期参与共建的用户，还有机会获得「悦享共建者」「荣誉会员」等专属权益。\n奖励以平台审核结果为准，重复提交、虚假反馈、恶意刷反馈不发放奖励。',
+  primary_button_text: '提交反馈',
+  secondary_button_text: '查看我的记录',
+  footer_slogan: '让每一份资源，都有价值。',
+})
+
 const loadGenericConfigs = async () => {
   const data = await getAdminConfigs()
   if (data?.stage2_points_config) Object.assign(pointsConfig, data.stage2_points_config)
   if (data?.stage2_task_config) Object.assign(taskConfig, data.stage2_task_config)
   if (data?.commission_settings) Object.assign(commissionConfig, data.commission_settings)
+  if (data?.co_build_config) Object.assign(coBuildConfig, data.co_build_config)
 }
 
 const loadData = async () => {
@@ -324,6 +401,35 @@ const saveCommission = async () => {
     ElMessage.error(error.message || '保存失败')
   } finally {
     savingCommission.value = false
+  }
+}
+
+const normalizeCoBuildConfig = (): CoBuildConfig => ({
+  enabled: Boolean(coBuildConfig.enabled),
+  announcement_title: coBuildConfig.announcement_title || '早期共建用户招募中，百万积分奖励池等你来拿',
+  announcement_jump_url: coBuildConfig.announcement_jump_url || '/pages/netdisk/co-build',
+  activity_title: coBuildConfig.activity_title || '悦享共建计划',
+  main_title: coBuildConfig.main_title || '让每一个好建议，都被看见',
+  subtitle: coBuildConfig.subtitle || '',
+  intro_text: coBuildConfig.intro_text || '',
+  reward_title: coBuildConfig.reward_title || '早期共建用户招募中',
+  reward_desc: coBuildConfig.reward_desc || '百万积分奖励池等你来拿',
+  reward_rules: coBuildConfig.reward_rules || '具体奖励以平台审核结果为准。',
+  primary_button_text: coBuildConfig.primary_button_text || '提交反馈',
+  secondary_button_text: coBuildConfig.secondary_button_text || '查看我的记录',
+  footer_slogan: coBuildConfig.footer_slogan || '让每一份资源，都有价值。',
+})
+
+const saveCoBuild = async () => {
+  savingCoBuild.value = true
+  try {
+    await updateAdminConfig('co_build_config', normalizeCoBuildConfig())
+    ElMessage.success('共建计划已保存')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingCoBuild.value = false
   }
 }
 

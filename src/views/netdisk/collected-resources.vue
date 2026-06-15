@@ -15,6 +15,7 @@
       <el-radio-group v-model="filters.bucket" @change="reloadFirstPage">
         <el-radio-button label="all">全部</el-radio-button>
         <el-radio-button label="low_confidence">低置信</el-radio-button>
+        <el-radio-button label="dirty">脏数据</el-radio-button>
         <el-radio-button label="duplicate">疑似重复</el-radio-button>
         <el-radio-button label="supplement">新增网盘</el-radio-button>
       </el-radio-group>
@@ -36,15 +37,32 @@
       <el-button @click="reloadFirstPage">查询</el-button>
     </div>
 
+    <div class="bulkbar">
+      <span>已选 {{ selectedRows.length }} 条</span>
+      <el-button type="primary" plain :disabled="!selectedRows.length || bulkLoading" :loading="bulkLoading" @click="bulkHandleSelected('approve')">
+        批量通过
+      </el-button>
+      <el-button type="warning" plain :disabled="!selectedRows.length || bulkLoading" :loading="bulkLoading" @click="bulkHandleSelected('skip')">
+        批量跳过
+      </el-button>
+      <el-button type="success" :disabled="bulkLoading || filters.status !== 'pending'" :loading="bulkLoading" @click="bulkHandleAll('approve')">
+        全部通过当前筛选
+      </el-button>
+      <el-button type="info" plain :disabled="bulkLoading || filters.status !== 'pending'" :loading="bulkLoading" @click="bulkHandleAll('skip')">
+        全部跳过当前筛选
+      </el-button>
+    </div>
+
     <el-alert
       class="notice"
       type="info"
       show-icon
       :closable="false"
-      title="通过会创建正式资源；跳过不会入库；合并适合新增网盘补充或确认重复的候选。批量导入支持 JSON/CSV 文件。"
+      title="通过会创建正式资源；跳过不会入库；合并适合新增网盘补充或确认重复的候选。求助帖、失效帖等脏数据会自动跳过并留下处理说明。"
     />
 
-    <el-table v-loading="loading" :data="items" border stripe>
+    <el-table v-loading="loading" :data="items" border stripe row-key="id" @selection-change="onSelectionChange">
+      <el-table-column type="selection" width="46" />
       <el-table-column label="资源" min-width="280" show-overflow-tooltip>
         <template #default="{ row }">
           <div class="title-cell">
@@ -75,6 +93,11 @@
       <el-table-column label="处理状态" width="100" align="center">
         <template #default="{ row }">
           <el-tag :type="statusTag(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="处理说明" min-width="220" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span>{{ row.error || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="时间" width="145">
@@ -222,6 +245,7 @@ import { onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  bulkHandleNetdiskCollectedResources,
   downloadNetdiskImportFailedRows,
   getNetdiskCollectedResources,
   getNetdiskImportBatches,
@@ -233,7 +257,9 @@ type ActionType = 'approve' | 'skip' | 'merge'
 
 const loading = ref(false)
 const handlingId = ref('')
+const bulkLoading = ref(false)
 const items = ref<any[]>([])
+const selectedRows = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
@@ -307,6 +333,10 @@ const reloadFirstPage = () => {
   loadList()
 }
 
+const onSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows
+}
+
 const handle = async (row: any, action: ActionType) => {
   const actionText = action === 'approve' ? '通过入库' : action === 'merge' ? '合并处理' : '跳过'
   const message = action === 'approve'
@@ -332,6 +362,82 @@ const handle = async (row: any, action: ActionType) => {
     ElMessage.error(error.message || '处理失败')
   } finally {
     handlingId.value = ''
+  }
+}
+
+const actionLabel = (action: ActionType) => {
+  if (action === 'approve') return '通过入库'
+  if (action === 'merge') return '合并处理'
+  return '跳过'
+}
+
+const showBulkResult = (data: any) => {
+  ElMessage.success(
+    `处理完成：发布 ${data.published || 0}，合并 ${data.merged || 0}，跳过 ${data.skipped || 0}，失败 ${data.failed || 0}`,
+  )
+}
+
+const bulkHandleSelected = async (action: ActionType) => {
+  if (!selectedRows.value.length) return
+  const text = actionLabel(action)
+  try {
+    await ElMessageBox.confirm(`确认${text}已选 ${selectedRows.value.length} 条候选？`, `批量${text}`, {
+      confirmButtonText: `批量${text}`,
+      cancelButtonText: '取消',
+      type: action === 'skip' ? 'warning' : 'info',
+    })
+  } catch {
+    return
+  }
+  bulkLoading.value = true
+  try {
+    const data = await bulkHandleNetdiskCollectedResources({
+      action,
+      ids: selectedRows.value.map((item) => item.id),
+      note: `PC后台批量${text}`,
+    })
+    showBulkResult(data)
+    selectedRows.value = []
+    await loadList()
+  } catch (error: any) {
+    ElMessage.error(error.message || '批量处理失败')
+  } finally {
+    bulkLoading.value = false
+  }
+}
+
+const bulkHandleAll = async (action: ActionType) => {
+  const text = actionLabel(action)
+  try {
+    await ElMessageBox.confirm(
+      `确认${text}当前筛选下全部 ${total.value} 条待处理候选？这个操作会分批入库或跳过。`,
+      `全部${text}`,
+      {
+        confirmButtonText: `全部${text}`,
+        cancelButtonText: '取消',
+        type: action === 'skip' ? 'warning' : 'info',
+      },
+    )
+  } catch {
+    return
+  }
+  bulkLoading.value = true
+  try {
+    const data = await bulkHandleNetdiskCollectedResources({
+      action,
+      all_matching: true,
+      status: filters.status,
+      bucket: filters.bucket,
+      keyword: filters.keyword,
+      note: `PC后台全部${text}`,
+    })
+    showBulkResult(data)
+    selectedRows.value = []
+    await loadList()
+  } catch (error: any) {
+    ElMessage.error(error.message || '全部处理失败')
+  } finally {
+    bulkLoading.value = false
   }
 }
 
@@ -475,6 +581,18 @@ onMounted(() => {
   border: 1px solid #e3e8ef;
   border-radius: 8px;
   background: #fff;
+}
+
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #e1e7f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #5d667a;
 }
 
 .status-select {

@@ -46,7 +46,8 @@
           <el-tag :type="browserGuard.force_cleanup ? 'success' : 'warning'" effect="plain">
             {{ browserGuard.force_cleanup ? '自动清理已开' : '自动清理关闭' }}
           </el-tag>
-          <el-button :loading="cleaningBrowsers" @click="cleanupBrowsers">清理浏览器进程</el-button>
+          <el-tag type="info" effect="plain">清理保护 {{ browserStaleMinutes }} 分钟</el-tag>
+          <el-button :disabled="hasRunningCrawler" :loading="cleaningBrowsers" @click="cleanupBrowsers">清理浏览器进程</el-button>
           <el-button link type="primary" @click="goCollectedResources">进入待审核池</el-button>
         </div>
       </div>
@@ -67,6 +68,25 @@
           {{ worker.error || 'worker 状态不可用' }}
         </div>
       </div>
+      <div class="current-featured-card">
+        <div class="current-featured-head">
+          <div>
+            <span class="strip-label">当前首页将展示</span>
+            <strong>最近一次采集精选前三条</strong>
+          </div>
+          <span>{{ latestFeaturedRunTime }}</span>
+        </div>
+        <div v-if="currentFeaturedPreview.length" class="current-featured-grid">
+          <div v-for="(item, index) in currentFeaturedPreview" :key="item.id || item.title" class="current-featured-item">
+            <em>{{ index + 1 }}</em>
+            <div>
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.pan || '-' }} · 上架{{ item.published_at || '-' }} · 验证{{ item.verified_at || '-' }}</span>
+            </div>
+          </div>
+        </div>
+        <span v-else class="muted">暂无预览，下一次每小时采集跑完后会自动生成。</span>
+      </div>
       <el-table v-loading="crawlerLoading" :data="crawlers" border stripe>
         <el-table-column prop="name" label="来源" min-width="150" />
         <el-table-column prop="schedule" label="频率" width="130" />
@@ -86,6 +106,11 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="下次执行" width="120" align="center">
+          <template #default="{ row }">
+            <span>{{ nextRunTime(row.key) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="note" label="规则说明" min-width="220" show-overflow-tooltip />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
@@ -101,6 +126,50 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="run-history">
+        <div class="panel-head slim">
+          <div>
+            <h3>最近运行记录</h3>
+            <p>自动更新结果会落库，worker 重启后这里也不会丢。</p>
+          </div>
+        </div>
+        <el-table :data="recentRuns" border stripe size="small" empty-text="暂无运行记录">
+          <el-table-column prop="crawler_key" label="任务" width="120">
+            <template #default="{ row }">{{ crawlerName(row.crawler_key) }}</template>
+          </el-table-column>
+          <el-table-column prop="trigger_source" label="触发方式" width="90">
+            <template #default="{ row }">{{ triggerSourceText(row.trigger_source) }}</template>
+          </el-table-column>
+          <el-table-column prop="status" label="结果" width="90">
+            <template #default="{ row }">
+              <el-tag :type="runStatusType(row.status)" size="small">{{ runStatusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="开始" width="110">
+            <template #default="{ row }">{{ formatTime(row.started_at) }}</template>
+          </el-table-column>
+          <el-table-column label="结束" width="110">
+            <template #default="{ row }">{{ formatTime(row.finished_at) }}</template>
+          </el-table-column>
+          <el-table-column label="耗时" width="88" align="center">
+            <template #default="{ row }">{{ formatDuration(row.duration_seconds) }}</template>
+          </el-table-column>
+          <el-table-column label="结果摘要" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">{{ runSummary(row) }}</template>
+          </el-table-column>
+          <el-table-column label="本次精选预览" min-width="320">
+            <template #default="{ row }">
+              <div v-if="runFeaturedPreview(row).length" class="featured-preview-list">
+                <div v-for="item in runFeaturedPreview(row)" :key="`${row.id}-${item.id || item.title}`" class="featured-preview-item">
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.pan || '-' }} · 上架{{ item.published_at || '-' }} · 验证{{ item.verified_at || '-' }}</span>
+                </div>
+              </div>
+              <span v-else class="muted">暂无预览</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </section>
 
     <div class="columns">
@@ -254,8 +323,8 @@ const crawlerLoading = ref(false)
 const runningCrawler = ref('')
 const cleaningBrowsers = ref(false)
 const crawlers = ref<any[]>([])
-const browserGuard = ref({ concurrency: 1, force_cleanup: true, browser_processes: 0, browser_process_limit: 0 })
-const worker = ref<any>({ reachable: false, status: 'unknown', tasks: [], running_tasks: [], blocked_tasks: [] })
+const browserGuard = ref({ concurrency: 1, force_cleanup: true, browser_processes: 0, browser_process_limit: 0, browser_stale_seconds: 300 })
+const worker = ref<any>({ reachable: false, status: 'unknown', tasks: [], running_tasks: [], blocked_tasks: [], scheduler_jobs: [], recent_runs: [] })
 const totals = ref<Record<ModuleKey, number>>({
   feedbacks: 0,
   uploads: 0,
@@ -271,6 +340,13 @@ const summaryCards = computed(() => [
   { key: 'uploads' as ModuleKey, label: '上传审核', count: totals.value.uploads, icon: '+' },
   { key: 'feedbacks' as ModuleKey, label: '用户反馈', count: totals.value.feedbacks, icon: '↵' },
 ])
+
+const recentRuns = computed(() => worker.value.recent_runs || [])
+const hasRunningCrawler = computed(() => (worker.value.running_tasks || []).length > 0)
+const browserStaleMinutes = computed(() => Math.max(1, Math.round(Number(browserGuard.value.browser_stale_seconds || 300) / 60)))
+const latestFeaturedRun = computed(() => recentRuns.value.find((row: any) => runFeaturedPreview(row).length))
+const currentFeaturedPreview = computed(() => runFeaturedPreview(latestFeaturedRun.value || {}))
+const latestFeaturedRunTime = computed(() => latestFeaturedRun.value?.finished_at ? `生成于 ${formatTime(latestFeaturedRun.value.finished_at)}` : '等待生成')
 
 const loadAll = async () => {
   loading.value = true
@@ -297,8 +373,8 @@ const loadAll = async () => {
       risks: Number(riskData.total ?? riskRecords.value.length),
     }
     crawlers.value = crawlerData.crawlers || []
-    browserGuard.value = crawlerData.browser_guard || { concurrency: 1, force_cleanup: true, browser_processes: 0, browser_process_limit: 0 }
-    worker.value = crawlerData.worker || { reachable: false, status: 'unknown', tasks: [], running_tasks: [], blocked_tasks: [] }
+    browserGuard.value = crawlerData.browser_guard || { concurrency: 1, force_cleanup: true, browser_processes: 0, browser_process_limit: 0, browser_stale_seconds: 300 }
+    worker.value = crawlerData.worker || { reachable: false, status: 'unknown', tasks: [], running_tasks: [], blocked_tasks: [], scheduler_jobs: [], recent_runs: [] }
     adminStore.setPendingCounts(totals.value)
   } catch (error: any) {
     ElMessage.error(error.message || '待处理数据加载失败，请确认后端服务状态')
@@ -322,6 +398,10 @@ const runCrawler = async (key: string) => {
 }
 
 const cleanupBrowsers = async () => {
+  if (hasRunningCrawler.value) {
+    ElMessage.warning('采集任务运行中，先不要清理浏览器进程')
+    return
+  }
   cleaningBrowsers.value = true
   try {
     const result = await cleanupCrawlerBrowsers()
@@ -344,6 +424,43 @@ const taskStatus = (key: string) => {
   if (task.last_error) return { type: 'danger' as TagType, label: `失败 ${task.consecutive_failures || 0}次`, time: formatTime(task.last_finished_at) }
   if (task.last_success_at) return { type: 'success' as TagType, label: '正常', time: formatTime(task.last_success_at) }
   return { type: 'info' as TagType, label: '待运行', time: '' }
+}
+
+const schedulerMatchesCrawler = (jobId: string, key: string) => {
+  if (key === 'kdocs_anime') return jobId === 'sync_anime_job'
+  if (key === 'linuxdo') return jobId === 'linuxdo_netdisk_12h_sync'
+  if (key === 'kdocs_movie' || key === 'kdocs_4k') return jobId === 'sync_movie_4k_job'
+  return false
+}
+
+const nextRunTime = (key: string) => {
+  const job = (worker.value.scheduler_jobs || []).find((item: any) => schedulerMatchesCrawler(item?.id, key))
+  return job?.next_run_time ? formatTime(job.next_run_time) : '-'
+}
+
+const crawlerName = (key: string) => ({
+  kdocs_anime: '影视剧',
+  kdocs_movie: '电影',
+  kdocs_4k: '4K影视',
+  linuxdo: 'LinuxDo',
+}[key] || key)
+
+const triggerSourceText = (value: string) => ({
+  manual: '手动',
+  schedule: '定时',
+}[value] || value || '-')
+
+const runStatusText = (value: string) => ({
+  success: '成功',
+  failed: '失败',
+  timeout: '超时',
+}[value] || value || '-')
+
+const runStatusType = (value: string): TagType => {
+  if (value === 'success') return 'success'
+  if (value === 'timeout') return 'warning'
+  if (value === 'failed') return 'danger'
+  return 'info'
 }
 
 const goModule = (key: ModuleKey) => {
@@ -369,8 +486,23 @@ const goLogs = () => router.push('/logs')
 const goCollectedResources = () => router.push('/collected-resources')
 
 const formatTime = (time: string) => (time ? dayjs(time).format('MM-DD HH:mm') : '-')
+const formatDuration = (seconds: number) => `${Number(seconds || 0)}s`
 const shortId = (value: string) => `#${String(value || '').replace(/-/g, '').slice(-6).toUpperCase()}`
 const previewText = (value: string) => String(value || '').replace(/\s+/g, ' ').slice(0, 90)
+const runSummary = (row: any) => {
+  if (row.status !== 'success') return row.error_text || '执行失败'
+  const parts = []
+  if (Number(row.synced_count || 0)) parts.push(`入库 ${row.synced_count}`)
+  if (Number(row.auto_published_count || 0)) parts.push(`自动发布 ${row.auto_published_count}`)
+  if (Number(row.review_required_count || 0)) parts.push(`待审核 ${row.review_required_count}`)
+  if (Number(row.netdisk_inactive_count || 0)) parts.push(`资源失效 ${row.netdisk_inactive_count}`)
+  if (Number(row.inactive_count || 0)) parts.push(`源失效 ${row.inactive_count}`)
+  return parts.join('，') || '执行成功'
+}
+const runFeaturedPreview = (row: any) => {
+  const list = row?.result_payload?.featured_preview
+  return Array.isArray(list) ? list.slice(0, 3) : []
+}
 
 const feedbackTypeText = (value: string) => {
   if (value === 'points') return '积分'
@@ -514,6 +646,31 @@ onMounted(loadAll)
   gap: 8px;
 }
 
+.featured-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.featured-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.featured-preview-item strong {
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.featured-preview-item span,
+.muted {
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .worker-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -543,12 +700,100 @@ onMounted(loadAll)
   font-size: 12px;
 }
 
+.current-featured-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #d6f1e8;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f7fffc, #ecfdf5);
+}
+
+.current-featured-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.current-featured-head strong {
+  display: block;
+  margin-top: 4px;
+  color: #065f46;
+  font-size: 15px;
+}
+
+.current-featured-head > span {
+  color: #6b7280;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.current-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.current-featured-item {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(6, 95, 70, .08);
+}
+
+.current-featured-item em {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #10b981;
+  color: #fff;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+
+.current-featured-item div {
+  min-width: 0;
+}
+
+.current-featured-item strong {
+  display: block;
+  overflow: hidden;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-featured-item span {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .task-status {
   display: flex;
   align-items: center;
   gap: 8px;
   color: #697386;
   font-size: 12px;
+}
+
+.run-history {
+  margin-top: 16px;
+}
+
+.panel-head.slim {
+  margin-bottom: 10px;
 }
 
 .columns {

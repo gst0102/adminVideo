@@ -20,6 +20,21 @@
         <small>累计 {{ n(data?.users?.total) }} 人</small>
       </div>
       <div class="metric-card">
+        <span>今日转发好友数</span>
+        <strong>{{ n(data?.invites?.today_share_friends) }}</strong>
+        <small>累计 {{ n(data?.invites?.total_share_friends) }} 人</small>
+      </div>
+      <div class="metric-card">
+        <span>今日新增资源数</span>
+        <strong>{{ n(data?.resources?.today_new) }}</strong>
+        <small>累计 {{ n(data?.resources?.total) }} 条</small>
+      </div>
+      <div class="metric-card">
+        <span>今日更新资源数</span>
+        <strong>{{ n(data?.resources?.today_updated) }}</strong>
+        <small>最近 {{ formatTime(data?.resources?.latest_verified_at) }}</small>
+      </div>
+      <div class="metric-card">
         <span>今日发放积分</span>
         <strong>{{ n(data?.points?.today_gain_points) }}</strong>
         <small>{{ n(data?.points?.today_gain_users) }} 人获得 · 不含后台调账</small>
@@ -85,7 +100,9 @@
       <div class="section-head">
         <h2>今日资源活动</h2>
       </div>
-      <el-descriptions border :column="3">
+      <el-descriptions border :column="4">
+        <el-descriptions-item label="今日新增资源">{{ n(data?.today_activity?.resources) }}</el-descriptions-item>
+        <el-descriptions-item label="今日更新资源">{{ n(data?.today_activity?.resource_updates) }}</el-descriptions-item>
         <el-descriptions-item label="今日上传">{{ n(data?.today_activity?.uploads) }}</el-descriptions-item>
         <el-descriptions-item label="今日补链">{{ n(data?.today_activity?.repairs) }}</el-descriptions-item>
         <el-descriptions-item label="今日投诉">{{ n(data?.today_activity?.reports) }}</el-descriptions-item>

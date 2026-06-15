@@ -31,6 +31,13 @@
           <div class="ticket-main">
             <el-tag :type="typeTag(row.feedback_type)" effect="light">{{ typeText(row.feedback_type) }}</el-tag>
             <span class="ticket-id">{{ shortId(row.id) }}</span>
+            <el-tag v-if="row.appeal_context?.is_appeal" type="danger" effect="light">申诉</el-tag>
+            <el-tag v-if="row.appeal_preview?.match_status" :type="previewTag(row.appeal_preview.match_status)" effect="plain">
+              {{ previewText(row.appeal_preview) }}
+            </el-tag>
+          </div>
+          <div v-if="contextTags(row).length" class="context-tags">
+            <el-tag v-for="tag in contextTags(row)" :key="tag" size="small" effect="plain">{{ tag }}</el-tag>
           </div>
           <div class="content-preview">{{ row.content }}</div>
         </template>
@@ -48,16 +55,23 @@
       <el-table-column label="提交时间" width="170">
         <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
       </el-table-column>
+      <el-table-column label="奖励/返还" width="110" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.reward_points > 0" type="success">{{ row.reward_points }} 分</el-tag>
+          <span v-else class="muted">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="处理回复" min-width="180" show-overflow-tooltip>
         <template #default="{ row }">
           <span>{{ row.admin_reply || row.auto_reply || '暂无回复' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="230" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" link @click="openDetail(row)">查看</el-button>
           <el-button type="warning" link @click="quickUpdate(row, 'processing')">处理中</el-button>
           <el-button type="success" link @click="openReply(row, 'resolved')">解决</el-button>
+          <el-button v-if="canAppeal(row)" type="danger" link @click="approveAppeal(row)">申诉通过</el-button>
           <el-button type="info" link @click="openReply(row, 'rejected')">关闭</el-button>
         </template>
       </el-table-column>
@@ -85,6 +99,25 @@
           <el-descriptions-item label="提交时间">{{ formatTime(current.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ formatTime(current.updated_at) }}</el-descriptions-item>
         </el-descriptions>
+        <div v-if="current.appeal_context?.is_appeal || contextTags(current).length" class="appeal-card">
+          <div class="appeal-card-head">
+            <div>
+              <div class="detail-title">申诉关联信息</div>
+              <div class="appeal-sub">{{ current.appeal_preview?.message || '系统已解析工单中的关联信息' }}</div>
+            </div>
+            <el-tag :type="previewTag(current.appeal_preview?.match_status || '')">
+              {{ previewText(current.appeal_preview) }}
+            </el-tag>
+          </div>
+          <div class="context-tags detail-tags">
+            <el-tag v-for="tag in contextTags(current)" :key="tag" effect="plain">{{ tag }}</el-tag>
+          </div>
+          <div v-if="current.appeal_preview?.match_status === 'matched'" class="appeal-preview">
+            预计返还 {{ current.appeal_preview.return_points || 0 }} 分，
+            处罚流水 {{ shortId(current.appeal_preview.penalty_ledger_id || '') }}，
+            关联 {{ current.appeal_preview.related_type || '-' }} / {{ current.appeal_preview.related_id || '-' }}
+          </div>
+        </div>
         <div class="detail-block">
           <div class="detail-title">用户描述</div>
           <pre>{{ current.content }}</pre>
@@ -120,6 +153,18 @@
             placeholder="写给用户看的处理说明，例如：已补发积分 / 链接已修复 / 已记录建议"
           />
         </el-form-item>
+        <el-form-item label="奖励/返还积分">
+          <el-input-number
+            v-model="replyForm.reward_points"
+            :min="0"
+            :max="500"
+            :step="10"
+            :disabled="replyForm.status !== 'resolved' || Boolean(current?.reward_ledger_id)"
+          />
+          <span class="hint">
+            {{ current?.reward_ledger_id ? '已到账，不能重复发放' : '仅已解决工单会发放到可用积分' }}
+          </span>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="replyVisible = false">取消</el-button>
@@ -132,9 +177,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
-import { getNetdiskFeedbacks, replyNetdiskFeedback } from '@/utils/api'
+import { approveNetdiskFeedbackAppeal, getNetdiskFeedbacks, replyNetdiskFeedback } from '@/utils/api'
 
 type FeedbackStatus = 'pending' | 'processing' | 'resolved' | 'rejected'
 
@@ -146,6 +191,29 @@ type FeedbackItem = {
   status: FeedbackStatus
   auto_reply: string
   admin_reply: string
+  reward_points: number
+  reward_ledger_id: string
+  appeal_context?: {
+    is_appeal?: boolean
+    resource_id?: string
+    resource_title?: string
+    pan?: string
+    upload_id?: string
+    repair_id?: string
+    ledger_id?: string
+    related_type?: string
+    related_id?: string
+    ids?: string[]
+  }
+  appeal_preview?: {
+    match_status?: string
+    message?: string
+    penalty_ledger_id?: string
+    related_type?: string
+    related_id?: string
+    return_points?: number
+    created_at?: string
+  }
   created_at: string
   updated_at: string
 }
@@ -165,9 +233,10 @@ const filters = reactive({
   page: 1,
   page_size: 50,
 })
-const replyForm = reactive<{ status: FeedbackStatus; note: string }>({
+const replyForm = reactive<{ status: FeedbackStatus; note: string; reward_points: number }>({
   status: 'processing',
   note: '',
+  reward_points: 0,
 })
 
 const replyDialogTitle = computed(() => current.value ? `处理工单 ${shortId(current.value.id)}` : '处理工单')
@@ -208,6 +277,7 @@ const openReply = (row: FeedbackItem, status: FeedbackStatus) => {
   current.value = row
   replyForm.status = status
   replyForm.note = row.admin_reply || ''
+  replyForm.reward_points = row.reward_points || (status === 'resolved' ? 10 : 0)
   detailVisible.value = false
   replyVisible.value = true
 }
@@ -216,14 +286,66 @@ const quickUpdate = async (row: FeedbackItem, status: FeedbackStatus) => {
   current.value = row
   replyForm.status = status
   replyForm.note = row.admin_reply || '工单已进入处理流程。'
+  replyForm.reward_points = 0
   await submitReply()
+}
+
+const canAppeal = (row: FeedbackItem) => ['resource', 'points'].includes(row.feedback_type) && row.status !== 'resolved'
+
+const contextTags = (row: FeedbackItem) => {
+  const context = row.appeal_context || {}
+  const tags: string[] = []
+  if (context.resource_id) tags.push(`资源 ${context.resource_id}`)
+  if (context.resource_title) tags.push(`标题 ${context.resource_title}`)
+  if (context.pan) tags.push(`网盘 ${context.pan}`)
+  if (context.upload_id) tags.push(`上传 ${context.upload_id}`)
+  if (context.repair_id) tags.push(`补链/投诉 ${context.repair_id}`)
+  if (context.ledger_id) tags.push(`流水 ${context.ledger_id}`)
+  if (context.related_type || context.related_id) tags.push(`关联 ${context.related_type || '-'} / ${context.related_id || '-'}`)
+  return tags
+}
+
+const previewText = (preview?: FeedbackItem['appeal_preview']) => {
+  const status = preview?.match_status || ''
+  if (status === 'matched') return `可返 ${preview?.return_points || 0}分`
+  if (status === 'missing') return '待补ID'
+  if (status === 'resolved') return '已处理'
+  if (status === 'not_appeal') return '普通工单'
+  return '未预览'
+}
+
+const previewTag = (status: string) => {
+  if (status === 'matched') return 'success'
+  if (status === 'missing') return 'danger'
+  if (status === 'resolved') return 'info'
+  return 'info'
+}
+
+const approveAppeal = async (row: FeedbackItem) => {
+  const note = `申诉通过：${row.content.slice(0, 120)}`
+  await ElMessageBox.confirm(
+    '确认申诉通过？系统会尝试返还最近匹配的失效扣罚积分、恢复信用并关闭待追缴。若用户有多条扣罚且未提供ID，后端会拒绝以避免误返。',
+    '申诉通过',
+    { type: 'warning' },
+  )
+  submitting.value = true
+  try {
+    const data = await approveNetdiskFeedbackAppeal(row.id, note)
+    const appeal = data?.appeal || {}
+    ElMessage.success(`申诉已处理，返还 ${appeal.returned_points || 0} 积分`)
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '申诉处理失败，请确认工单内容包含上传/补链/资源ID')
+  } finally {
+    submitting.value = false
+  }
 }
 
 const submitReply = async () => {
   if (!current.value) return
   submitting.value = true
   try {
-    await replyNetdiskFeedback(current.value.id, replyForm.status, replyForm.note.trim())
+    await replyNetdiskFeedback(current.value.id, replyForm.status, replyForm.note.trim(), Number(replyForm.reward_points || 0))
     ElMessage.success('处理结果已保存')
     replyVisible.value = false
     await loadData()
@@ -305,6 +427,7 @@ onMounted(loadData)
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .ticket-id {
@@ -317,6 +440,13 @@ onMounted(loadData)
   color: #25324b;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.context-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .pager {
@@ -335,6 +465,36 @@ onMounted(loadData)
   font-weight: 700;
 }
 
+.appeal-card {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #ffd0d0;
+  border-radius: 8px;
+  background: #fff8f8;
+}
+
+.appeal-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.appeal-sub,
+.appeal-preview {
+  color: #697386;
+  font-size: 13px;
+}
+
+.detail-tags {
+  margin-top: 10px;
+}
+
+.appeal-preview {
+  margin-top: 10px;
+  word-break: break-all;
+}
+
 pre {
   margin: 0;
   padding: 12px;
@@ -344,5 +504,15 @@ pre {
   font-family: inherit;
   line-height: 1.5;
   white-space: pre-wrap;
+}
+
+.muted,
+.hint {
+  color: #697386;
+  font-size: 13px;
+}
+
+.hint {
+  margin-left: 10px;
 }
 </style>

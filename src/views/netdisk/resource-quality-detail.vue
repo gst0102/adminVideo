@@ -158,6 +158,37 @@
 
     <section class="panel">
       <div class="section-head">
+        <h2>系统自动处理</h2>
+        <span>达到投诉阈值后的自动下架、扣分和待追缴记录</span>
+      </div>
+      <el-alert
+        v-if="systemAutoLogs.length === 0"
+        type="info"
+        :closable="false"
+        title="暂无系统自动处理记录"
+        show-icon
+      />
+      <el-timeline v-else class="system-timeline">
+        <el-timeline-item
+          v-for="item in systemAutoLogs"
+          :key="item.id || `${item.action}-${item.created_at}`"
+          type="warning"
+          :timestamp="formatTime(item.created_at)"
+          placement="top"
+        >
+          <div class="system-log-card">
+            <div class="system-log-head">
+              <strong>{{ actionText(item.action) }}</strong>
+              <el-tag type="warning" effect="dark">system</el-tag>
+            </div>
+            <p>{{ item.note || '系统已按资源投诉规则自动处理。' }}</p>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
         <h2>最近处理日志</h2>
         <span>资源和投诉相关日志</span>
       </div>
@@ -208,9 +239,11 @@ const alertTypeText = (value: string) => ({ high_report: '高投诉', unlock_rep
 const alertStatusText = (value: string) => ({ open: '待处理', read: '已读', resolved: '已处理', ignored: '已忽略' }[value] || value)
 type TagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
 const alertStatusType = (value: string): TagType => ({ open: 'danger', read: 'warning', resolved: 'success', ignored: 'info' }[value] || 'info') as TagType
+const systemAutoLogs = computed(() => (detail.value?.recent_logs || []).filter((item: any) => item.admin_name === 'system' || item.action === 'resource_auto_confirm_invalid'))
 const actionText = (value: string) => ({
   report_confirm: '投诉确认',
   report_reject: '投诉撤销',
+  resource_auto_confirm_invalid: '系统自动确认失效',
   resource_restore: '恢复上架',
   resource_quality_confirm_invalid: '资源质量确认失效',
   resource_quality_keep_hidden: '资源质量继续隐藏',
@@ -384,6 +417,34 @@ onMounted(loadData)
   height: 8px;
   background: #0f766e;
   border-radius: 999px;
+}
+
+.system-timeline {
+  margin-top: 6px;
+}
+
+.system-log-card {
+  padding: 12px 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.system-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.system-log-head strong {
+  color: #9a3412;
+}
+
+.system-log-card p {
+  margin: 8px 0 0;
+  color: #7c2d12;
+  line-height: 1.55;
 }
 
 @media (max-width: 1100px) {

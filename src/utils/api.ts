@@ -54,6 +54,7 @@ export interface AuditConfig {
   upload_reward_points: number
   repair_reward_points: number
   report_hide_threshold: number
+  report_confirm_invalid_threshold: number
   quality_high_report_threshold: number
   quality_high_unlock_threshold: number
   quality_burst_report_threshold: number
@@ -92,6 +93,22 @@ export interface CommissionRuleConfig {
   level2_rate: number
   settlement_days: number
   rules: string
+}
+
+export interface CoBuildConfig {
+  enabled: boolean
+  announcement_title: string
+  announcement_jump_url: string
+  activity_title: string
+  main_title: string
+  subtitle: string
+  intro_text: string
+  reward_title: string
+  reward_desc: string
+  reward_rules: string
+  primary_button_text: string
+  secondary_button_text: string
+  footer_slogan: string
 }
 
 export interface AdminUserListParams {
@@ -133,6 +150,20 @@ export async function adjustAdminUserPoints(
 
 export async function getAdminPaymentOrders(params: AdminPaymentOrderParams = {}): Promise<any> {
   return http.get('/admin/payments/orders', { params })
+}
+
+export async function getAdminEquityLedger(
+  params: {
+    keyword?: string
+    change_type?: string
+    related_type?: string
+    start_date?: string
+    end_date?: string
+    page?: number
+    page_size?: number
+  } = {},
+): Promise<any> {
+  return http.get('/admin/equity-ledger', { params })
 }
 
 export async function reconcileAdminPaymentOrders(payload: { lookback_minutes?: number; limit?: number } = {}): Promise<any> {
@@ -260,6 +291,18 @@ export async function handleNetdiskCollectedResource(
   return http.post(`/admin/netdisk/collected-resources/${id}/${action}`, { note })
 }
 
+export async function bulkHandleNetdiskCollectedResources(params: {
+  action: 'approve' | 'skip' | 'merge'
+  ids?: string[]
+  all_matching?: boolean
+  status?: string
+  bucket?: string
+  keyword?: string
+  note?: string
+}): Promise<any> {
+  return http.post('/admin/netdisk/collected-resources/bulk-action', params)
+}
+
 export async function importNetdiskCollectedResources(file: File, sourceType = 'manual'): Promise<any> {
   const form = new FormData()
   form.append('file', file)
@@ -302,15 +345,45 @@ export async function replyNetdiskFeedback(
   id: string,
   status: 'pending' | 'processing' | 'resolved' | 'rejected',
   note = '',
+  rewardPoints = 0,
 ): Promise<any> {
   return http.post(`/admin/netdisk/feedbacks/${id}/reply`, {
     result_action: status,
     note,
+    reward_points: rewardPoints,
   })
+}
+
+export async function approveNetdiskFeedbackAppeal(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/feedbacks/${id}/appeal-approve`, { note })
 }
 
 export async function restoreNetdiskResource(id: string, note = ''): Promise<any> {
   return http.post(`/admin/netdisk/resources/${id}/restore`, { note })
+}
+
+export async function hideNetdiskResource(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/resources/${id}/hide`, { note })
+}
+
+export async function getNetdiskRequests(params: NetdiskListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/requests', { params })
+}
+
+export async function deleteNetdiskRequest(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/requests/${id}/delete`, { note })
+}
+
+export async function getNetdiskResourceSubscriptions(
+  params: NetdiskListParams & { wx_subscribe_status?: string } = {},
+): Promise<any> {
+  return http.get('/admin/netdisk/resource-subscriptions', { params })
+}
+
+export async function getNetdiskResourceSubscriptionPushLogs(
+  params: NetdiskListParams & { subscription_id?: string; resource_id?: string } = {},
+): Promise<any> {
+  return http.get('/admin/netdisk/resource-subscription-push-logs', { params })
 }
 
 export async function getNetdiskRiskRecords(params: NetdiskListParams = {}): Promise<any> {

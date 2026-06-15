@@ -32,6 +32,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '充值订单', icon: 'Wallet' },
       },
       {
+        path: 'equity-ledger',
+        name: 'EquityLedger',
+        component: () => import('@/views/finance/equity-ledger.vue'),
+        meta: { title: '权益金流水', icon: 'Money' },
+      },
+      {
         path: 'ops-center',
         name: 'OpsCenter',
         component: () => import('@/views/netdisk/ops-center.vue'),
@@ -48,6 +54,18 @@ const routes: RouteRecordRaw[] = [
         name: 'Resources',
         component: () => import('@/views/netdisk/resources.vue'),
         meta: { title: '资源库', icon: 'Files' },
+      },
+      {
+        path: 'requests',
+        name: 'Requests',
+        component: () => import('@/views/netdisk/requests.vue'),
+        meta: { title: '悬赏管理', icon: 'Aim' },
+      },
+      {
+        path: 'resource-subscriptions',
+        name: 'ResourceSubscriptions',
+        component: () => import('@/views/netdisk/resource-subscriptions.vue'),
+        meta: { title: '追更订阅', icon: 'Bell' },
       },
       {
         path: 'resource-quality/:id',

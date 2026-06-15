@@ -29,6 +29,10 @@
           <el-icon><Wallet /></el-icon>
           <span>充值订单</span>
         </el-menu-item>
+        <el-menu-item index="/equity-ledger">
+          <el-icon><Money /></el-icon>
+          <span>权益金流水</span>
+        </el-menu-item>
         <el-menu-item index="/review">
           <el-icon><FolderChecked /></el-icon>
           <span>审核中心</span>
@@ -36,6 +40,14 @@
         <el-menu-item index="/resources">
           <el-icon><Files /></el-icon>
           <span>资源库</span>
+        </el-menu-item>
+        <el-menu-item index="/requests">
+          <el-icon><Aim /></el-icon>
+          <span>悬赏管理</span>
+        </el-menu-item>
+        <el-menu-item index="/resource-subscriptions">
+          <el-icon><Bell /></el-icon>
+          <span>追更订阅</span>
         </el-menu-item>
         <el-menu-item index="/risks">
           <el-icon><Warning /></el-icon>
@@ -116,7 +128,10 @@ const currentSubtitle = computed(() => {
   if (route.path === '/ops-center') return '先处理积分异常、资源投诉和用户反馈，避免漏单'
   if (route.path === '/dashboard') return '查看资源增长、积分流动和质量趋势'
   if (route.path === '/payments') return '查看充值订单、到账流水，并手动补单'
+  if (route.path === '/equity-ledger') return '按用户、订单、提现单追踪每一笔权益金变化'
   if (route.path === '/collected-resources') return '处理采集资源的低置信、重复和新增网盘补充'
+  if (route.path === '/requests') return '处理用户悬赏，必要时删除并退回冻结积分'
+  if (route.path === '/resource-subscriptions') return '查看用户追更订阅、推送结果和失败原因'
   return '处理资源审核、投诉、积分风控和运营增长'
 })
 const badgeText = computed(() => (adminStore.pendingTotal > 99 ? '99+' : String(adminStore.pendingTotal)))
