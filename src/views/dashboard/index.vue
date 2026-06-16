@@ -27,12 +27,12 @@
       <div class="metric-card">
         <span>今日新增资源数</span>
         <strong>{{ n(data?.resources?.today_new) }}</strong>
-        <small>累计 {{ n(data?.resources?.total) }} 条</small>
+        <small>按入库时间 created_at · 累计 {{ n(data?.resources?.total) }} 条</small>
       </div>
       <div class="metric-card">
         <span>今日更新资源数</span>
         <strong>{{ n(data?.resources?.today_updated) }}</strong>
-        <small>最近 {{ formatTime(data?.resources?.latest_verified_at) }}</small>
+        <small>按验证/同步时间 verified_at · 最近 {{ formatTime(data?.resources?.latest_verified_at) }}</small>
       </div>
       <div class="metric-card">
         <span>今日发放积分</span>
@@ -132,6 +132,34 @@
               <i :style="{ width: barWidth(Math.abs(row.points), sourceMax) }" />
             </div>
           </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <section class="spend-panel">
+      <div class="section-head">
+        <h2>今日用户积分消耗明细</h2>
+        <span>按用户汇总今日负积分流水，不含后台调账</span>
+      </div>
+      <el-table :data="data?.point_spend_users || []" border stripe empty-text="今日暂无用户消耗">
+        <el-table-column label="用户" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="user-cell">
+              <strong>{{ row.nickname || '未命名用户' }}</strong>
+              <span>{{ row.openid }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="spend_points" label="消耗积分" width="120" align="right">
+          <template #default="{ row }">{{ n(row.spend_points) }}</template>
+        </el-table-column>
+        <el-table-column prop="spend_count" label="笔数" width="90" align="center" />
+        <el-table-column label="最近来源" min-width="180">
+          <template #default="{ row }">{{ sourceText(row.latest_source) }} / {{ changeTypeText(row.latest_change_type) }}</template>
+        </el-table-column>
+        <el-table-column prop="latest_remark" label="最近备注" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="last_spend_at" label="最后消耗时间" width="170">
+          <template #default="{ row }">{{ formatTime(row.last_spend_at) }}</template>
         </el-table-column>
       </el-table>
     </section>
@@ -333,6 +361,7 @@ onMounted(loadData)
 .activity,
 .trend-panel,
 .source-panel,
+.spend-panel,
 .quality-panel {
   background: #fff;
   border: 1px solid #e3e8ef;
@@ -364,6 +393,7 @@ onMounted(loadData)
 .activity,
 .trend-panel,
 .source-panel,
+.spend-panel,
 .quality-panel {
   margin-top: 18px;
   padding: 18px;
@@ -405,6 +435,21 @@ onMounted(loadData)
 }
 
 .resource-title span {
+  color: #697386;
+  font-size: 12px;
+}
+
+.user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.user-cell strong {
+  color: #172033;
+}
+
+.user-cell span {
   color: #697386;
   font-size: 12px;
 }
