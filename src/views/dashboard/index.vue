@@ -161,6 +161,12 @@
         <el-table-column prop="last_spend_at" label="最后消耗时间" width="170">
           <template #default="{ row }">{{ formatTime(row.last_spend_at) }}</template>
         </el-table-column>
+        <el-table-column label="追溯" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="openUserSpend(row)">用户流水</el-button>
+            <el-button type="success" link @click="openUserDetail(row)">用户</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </section>
 
@@ -275,6 +281,14 @@ const n = (value: any) => Number(value || 0).toLocaleString()
 const formatTime = (time?: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-')
 const go = (path: string) => router.push(path)
 const openQualityDetail = (id: string) => router.push(`/resource-quality/${id}`)
+const openUserSpend = (row: any) => {
+  const keyword = row.openid || row.user_id || row.nickname || ''
+  router.push({ path: '/equity-ledger', query: { keyword } })
+}
+const openUserDetail = (row: any) => {
+  const keyword = row.openid || row.user_id || row.nickname || ''
+  router.push({ path: '/users', query: { keyword } })
+}
 const trendMax = computed(() => {
   const trends = data.value?.trends || []
   return {

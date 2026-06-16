@@ -129,10 +129,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAdminEquityLedger } from '@/utils/api'
 
+const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const rows = ref<any[]>([])
 const total = ref(0)
@@ -196,6 +199,12 @@ const shortId = (value: string) => {
   return value.length > 14 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value
 }
 
+const applyRouteQuery = () => {
+  filters.keyword = typeof route.query.keyword === 'string' ? route.query.keyword : ''
+  filters.change_type = typeof route.query.change_type === 'string' ? route.query.change_type : ''
+  filters.related_type = typeof route.query.related_type === 'string' ? route.query.related_type : ''
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -220,6 +229,14 @@ const loadData = async () => {
 
 const search = () => {
   filters.page = 1
+  router.replace({
+    path: '/equity-ledger',
+    query: {
+      keyword: filters.keyword || undefined,
+      change_type: filters.change_type || undefined,
+      related_type: filters.related_type || undefined,
+    },
+  })
   loadData()
 }
 
@@ -229,6 +246,7 @@ const reset = () => {
   filters.related_type = ''
   filters.page = 1
   dateRange.value = []
+  router.replace({ path: '/equity-ledger' })
   loadData()
 }
 
@@ -243,7 +261,19 @@ const copy = async (value: string) => {
   ElMessage.success('已复制')
 }
 
-onMounted(loadData)
+watch(
+  () => route.query,
+  () => {
+    applyRouteQuery()
+    filters.page = 1
+    loadData()
+  },
+)
+
+onMounted(() => {
+  applyRouteQuery()
+  loadData()
+})
 </script>
 
 <style scoped>

@@ -6,13 +6,13 @@
         clearable
         placeholder="搜索昵称 / openid / 邀请码"
         style="width: 340px"
-        @keyup.enter="loadUsers"
+        @keyup.enter="searchUsers"
       />
       <el-select v-model="filters.is_vip" clearable placeholder="会员状态" style="width: 150px" @change="loadUsers">
         <el-option label="会员" :value="true" />
         <el-option label="非会员" :value="false" />
       </el-select>
-      <el-button type="primary" :loading="loading" @click="loadUsers">查询</el-button>
+      <el-button type="primary" :loading="loading" @click="searchUsers">查询</el-button>
     </div>
 
     <el-table v-loading="loading" :data="users" border stripe @row-click="openDetail">
@@ -140,10 +140,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adjustAdminUserPoints, getAdminUserDetail, getAdminUsers } from '@/utils/api'
 
+const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const users = ref<any[]>([])
 const total = ref(0)
@@ -166,6 +169,10 @@ const adjustForm = reactive<{ action: 'add' | 'consume'; points: number; note: s
 
 const n = (value: any) => Number(value || 0).toLocaleString()
 
+const applyRouteQuery = () => {
+  filters.keyword = typeof route.query.keyword === 'string' ? route.query.keyword : ''
+}
+
 const loadUsers = async () => {
   loading.value = true
   try {
@@ -182,6 +189,12 @@ const loadUsers = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const searchUsers = () => {
+  filters.page = 1
+  router.replace({ path: '/users', query: { keyword: filters.keyword || undefined } })
+  loadUsers()
 }
 
 const changePage = (page: number) => {
@@ -235,7 +248,19 @@ const submitAdjust = async () => {
   }
 }
 
-onMounted(loadUsers)
+watch(
+  () => route.query,
+  () => {
+    applyRouteQuery()
+    filters.page = 1
+    loadUsers()
+  },
+)
+
+onMounted(() => {
+  applyRouteQuery()
+  loadUsers()
+})
 </script>
 
 <style scoped>

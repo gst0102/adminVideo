@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '权益金流水', icon: 'Money' },
       },
       {
+        path: 'withdrawals',
+        name: 'Withdrawals',
+        component: () => import('@/views/finance/withdrawals.vue'),
+        meta: { title: '提现管理', icon: 'WalletFilled' },
+      },
+      {
         path: 'ops-center',
         name: 'OpsCenter',
         component: () => import('@/views/netdisk/ops-center.vue'),

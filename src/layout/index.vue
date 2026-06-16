@@ -33,6 +33,10 @@
           <el-icon><Money /></el-icon>
           <span>权益金流水</span>
         </el-menu-item>
+        <el-menu-item index="/withdrawals">
+          <el-icon><WalletFilled /></el-icon>
+          <span>提现管理</span>
+        </el-menu-item>
         <el-menu-item index="/review">
           <el-icon><FolderChecked /></el-icon>
           <span>审核中心</span>
@@ -129,6 +133,7 @@ const currentSubtitle = computed(() => {
   if (route.path === '/dashboard') return '查看资源增长、积分流动和质量趋势'
   if (route.path === '/payments') return '查看充值订单、到账流水，并手动补单'
   if (route.path === '/equity-ledger') return '按用户、订单、提现单追踪每一笔权益金变化'
+  if (route.path === '/withdrawals') return '查看提现申请、微信转账单号、失败原因和用户权益金快照'
   if (route.path === '/collected-resources') return '处理采集资源的低置信、重复和新增网盘补充'
   if (route.path === '/requests') return '处理用户悬赏，必要时删除并退回冻结积分'
   if (route.path === '/resource-subscriptions') return '查看用户追更订阅、推送结果和失败原因'

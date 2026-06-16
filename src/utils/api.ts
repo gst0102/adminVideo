@@ -166,6 +166,25 @@ export async function getAdminEquityLedger(
   return http.get('/admin/equity-ledger', { params })
 }
 
+export async function getAdminWithdrawals(
+  params: {
+    keyword?: string
+    status?: string
+    page?: number
+    page_size?: number
+  } = {},
+): Promise<any> {
+  return http.get('/admin/withdrawals', { params })
+}
+
+export async function approveAdminWithdrawal(id: string): Promise<any> {
+  return http.post(`/admin/withdrawals/${id}/approve`, {})
+}
+
+export async function rejectAdminWithdrawal(id: string, reason = 'admin_rejected'): Promise<any> {
+  return http.post(`/admin/withdrawals/${id}/reject`, {}, { params: { reason } })
+}
+
 export async function reconcileAdminPaymentOrders(payload: { lookback_minutes?: number; limit?: number } = {}): Promise<any> {
   return http.post('/admin/payments/reconcile', {
     lookback_minutes: payload.lookback_minutes ?? 180,
