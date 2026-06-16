@@ -65,7 +65,7 @@ const routes: RouteRecordRaw[] = [
         path: 'requests',
         name: 'Requests',
         component: () => import('@/views/netdisk/requests.vue'),
-        meta: { title: '悬赏管理', icon: 'Aim' },
+        meta: { title: '求助管理', icon: 'Aim' },
       },
       {
         path: 'resource-subscriptions',

@@ -47,7 +47,7 @@
         </el-menu-item>
         <el-menu-item index="/requests">
           <el-icon><Aim /></el-icon>
-          <span>悬赏管理</span>
+          <span>求助管理</span>
         </el-menu-item>
         <el-menu-item index="/resource-subscriptions">
           <el-icon><Bell /></el-icon>
@@ -135,7 +135,7 @@ const currentSubtitle = computed(() => {
   if (route.path === '/equity-ledger') return '按用户、订单、提现单追踪每一笔权益金变化'
   if (route.path === '/withdrawals') return '查看提现申请、微信转账单号、失败原因和用户权益金快照'
   if (route.path === '/collected-resources') return '处理采集资源的低置信、重复和新增网盘补充'
-  if (route.path === '/requests') return '处理用户悬赏，必要时删除并退回冻结积分'
+  if (route.path === '/requests') return '处理用户求助，必要时删除并退回冻结积分'
   if (route.path === '/resource-subscriptions') return '查看用户追更订阅、推送结果和失败原因'
   return '处理资源审核、投诉、积分风控和运营增长'
 })
