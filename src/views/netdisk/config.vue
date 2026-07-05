@@ -58,6 +58,90 @@
         </el-form>
       </el-tab-pane>
 
+      <el-tab-pane label="前台展示" name="publicVisibility">
+        <el-alert
+          class="tip"
+          type="warning"
+          :closable="false"
+          title="这个开关直接控制小程序公开资源接口。审核期建议关闭影视剧展示；关闭后今日精选只展示指定安全分类。"
+        />
+        <el-form label-width="210px" class="config-form">
+          <el-form-item label="小程序公开模式">
+            <el-select v-model="publicVisibilityConfig.miniapp_public_mode" style="width: 220px">
+              <el-option label="审核安全模式" value="review_safe" />
+              <el-option label="普通模式" value="normal" />
+            </el-select>
+            <span class="hint">审核期固定建议使用审核安全模式</span>
+          </el-form-item>
+          <el-form-item label="H5 独立域名">
+            <el-input v-model="publicVisibilityConfig.h5_base_url" style="width: 420px" placeholder="https://h5.example.com" />
+            <span class="hint">小程序复制详情链接会使用这个域名</span>
+          </el-form-item>
+          <el-form-item label="需求默认悬赏">
+            <el-input-number v-model="publicVisibilityConfig.request_default_bounty_points" :min="5" :max="50" :step="5" />
+            <span class="hint">默认 10 积分</span>
+          </el-form-item>
+          <el-form-item label="需求发布需审核">
+            <el-switch v-model="publicVisibilityConfig.request_requires_audit" active-text="需要" inactive-text="不需要" />
+          </el-form-item>
+          <el-form-item label="安全展示分类">
+            <el-select v-model="publicVisibilityConfig.safe_frontend_categories" multiple filterable allow-create style="width: 520px">
+              <el-option v-for="item in visibilityCategoryOptions" :key="item" :label="item" :value="item" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="小程序展示影视剧">
+            <el-switch
+              v-model="publicVisibilityConfig.show_media_in_miniapp"
+              active-text="展示"
+              inactive-text="隐藏"
+            />
+          </el-form-item>
+          <template v-if="!publicVisibilityConfig.show_media_in_miniapp">
+            <el-form-item label="隐藏分类">
+              <el-select v-model="publicVisibilityConfig.hidden_categories" multiple filterable style="width: 360px">
+                <el-option v-for="item in visibilityCategoryOptions" :key="item" :label="item" :value="item" />
+              </el-select>
+              <span class="hint">关闭影视时，小程序列表、详情、解锁都会屏蔽这些分类</span>
+            </el-form-item>
+            <el-form-item label="今日精选安全分类">
+              <el-select
+                v-model="publicVisibilityConfig.featured_category_when_closed"
+                filterable
+                allow-create
+                default-first-option
+                style="width: 260px"
+              >
+                <el-option v-for="item in visibilityCategoryOptions" :key="item" :label="item" :value="item" />
+              </el-select>
+              <span class="hint">当前建议选 AI工具 或 学习办公</span>
+            </el-form-item>
+          </template>
+          <el-form-item label="前端分类标签">
+            <el-select
+              v-model="frontendCategoryConfig.categories"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              style="width: 520px"
+              placeholder="选择或输入新增分类标签"
+            >
+              <el-option v-for="item in frontendCategoryOptions" :key="item" :label="item" :value="item" />
+            </el-select>
+            <el-button :loading="savingFrontendCategories" @click="saveFrontendCategories">保存标签</el-button>
+            <span class="hint">小程序分类筛选栏会优先使用这里的标签</span>
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="publicVisibilityConfig.note" type="textarea" :rows="3" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingPublicVisibility" @click="savePublicVisibility">
+              保存前台展示规则和标签
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
       <el-tab-pane label="签到与小游戏积分" name="points">
         <el-alert
           class="tip"
@@ -168,6 +252,75 @@
         </el-form>
       </el-tab-pane>
 
+      <el-tab-pane label="新官方收益" name="officialTransfer">
+        <el-alert
+          class="tip"
+          type="warning"
+          :closable="false"
+          title="测试期只记录新官方资源获取行为，不发放权益金。确认真实转存收益后再切换结算模式。"
+        />
+        <el-form label-width="210px" class="config-form">
+          <el-form-item label="记录开关">
+            <el-switch v-model="officialTransferConfig.enabled" active-text="记录" inactive-text="关闭" />
+          </el-form-item>
+          <el-form-item label="结算模式">
+            <el-select v-model="officialTransferConfig.settlement_mode" style="width: 220px">
+              <el-option label="只记录不发放" value="record_only" />
+              <el-option label="发放权益金（暂勿启用）" value="grant_equity" disabled />
+            </el-select>
+            <span class="hint">当前阶段固定使用只记录</span>
+          </el-form-item>
+          <el-form-item label="默认一级权益金">
+            <el-input-number v-model="officialTransferConfig.default_level1_amount" :min="0" :step="0.01" :precision="2" />
+            <span class="hint">元/次 · 默认 0.20</span>
+          </el-form-item>
+          <el-form-item label="默认二级权益金">
+            <el-input-number v-model="officialTransferConfig.default_level2_amount" :min="0" :step="0.01" :precision="2" />
+            <span class="hint">元/次 · 默认 0.05</span>
+          </el-form-item>
+          <el-form-item label="按网盘单价">
+            <el-table :data="officialPanRuleRows" border style="max-width: 760px">
+              <el-table-column prop="pan" label="网盘" width="100" />
+              <el-table-column label="启用" width="90">
+                <template #default="{ row }">
+                  <el-switch v-model="row.rule.enabled" />
+                </template>
+              </el-table-column>
+              <el-table-column label="一级权益金">
+                <template #default="{ row }">
+                  <el-input-number v-model="row.rule.level1_amount" :min="0" :step="0.01" :precision="2" />
+                </template>
+              </el-table-column>
+              <el-table-column label="二级权益金">
+                <template #default="{ row }">
+                  <el-input-number v-model="row.rule.level2_amount" :min="0" :step="0.01" :precision="2" />
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="officialTransferConfig.note" type="textarea" :rows="3" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingOfficialTransfer" @click="saveOfficialTransfer">保存新官方收益配置</el-button>
+          </el-form-item>
+        </el-form>
+        <div class="sub-head">
+          <h3>最近新官方获取记录</h3>
+          <el-button :loading="loadingOfficialAccess" @click="loadOfficialAccessRecords">刷新记录</el-button>
+        </div>
+        <el-table :data="officialAccessRecords" border>
+          <el-table-column prop="created_at" label="时间" width="180" />
+          <el-table-column prop="nickname" label="获取用户" width="140" />
+          <el-table-column prop="pan" label="网盘" width="90" />
+          <el-table-column prop="resource_id" label="资源ID" min-width="180" />
+          <el-table-column prop="level1_amount" label="一级预计" width="100" />
+          <el-table-column prop="level2_amount" label="二级预计" width="100" />
+          <el-table-column prop="settlement_mode" label="模式" width="120" />
+          <el-table-column prop="settlement_status" label="状态" width="110" />
+        </el-table>
+      </el-tab-pane>
+
       <el-tab-pane label="共建计划" name="coBuild">
         <el-alert
           class="tip"
@@ -225,10 +378,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getAdminConfigs, getNetdiskAuditConfig, updateAdminConfig, updateNetdiskAuditConfig } from '@/utils/api'
-import type { AuditConfig, CoBuildConfig, CommissionRuleConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
+import { getAdminConfigs, getNetdiskAuditConfig, getNetdiskFrontendCategories, getNetdiskNewOfficialAccessRecords, updateAdminConfig, updateNetdiskAuditConfig, updateNetdiskFrontendCategories } from '@/utils/api'
+import type { AuditConfig, CoBuildConfig, CommissionRuleConfig, NetdiskFrontendCategoriesConfig, NetdiskOfficialTransferConfig, NetdiskPublicVisibilityConfig, PointsRuleConfig, TaskRuleConfig } from '@/utils/api'
 
 const activeTab = ref('audit')
 const loading = ref(false)
@@ -237,6 +390,11 @@ const savingPoints = ref(false)
 const savingTasks = ref(false)
 const savingCommission = ref(false)
 const savingCoBuild = ref(false)
+const savingPublicVisibility = ref(false)
+const savingFrontendCategories = ref(false)
+const savingOfficialTransfer = ref(false)
+const loadingOfficialAccess = ref(false)
+const officialAccessRecords = ref<any[]>([])
 
 const auditConfig = reactive<AuditConfig>({
   upload_reward_points: 5,
@@ -283,6 +441,30 @@ const commissionConfig = reactive<CommissionRuleConfig>({
   rules: '邀请好友购买会员后，返利积分先进入冻结账户，期满后可解冻。',
 })
 
+const officialPanNames = ['百度', '夸克', 'UC', '迅雷', '快兔']
+
+const officialTransferConfig = reactive<NetdiskOfficialTransferConfig>({
+  enabled: true,
+  settlement_mode: 'record_only',
+  default_level1_amount: 0.2,
+  default_level2_amount: 0.05,
+  pan_rules: {
+    百度: { enabled: true, level1_amount: 0.2, level2_amount: 0.05 },
+    夸克: { enabled: true, level1_amount: 0.2, level2_amount: 0.05 },
+    UC: { enabled: false, level1_amount: 0.2, level2_amount: 0.05 },
+    迅雷: { enabled: false, level1_amount: 0.2, level2_amount: 0.05 },
+    快兔: { enabled: false, level1_amount: 0.2, level2_amount: 0.05 },
+  },
+  note: '测试期只记录新官方资源获取行为，不发放权益金。',
+})
+
+const officialPanRuleRows = computed(() => officialPanNames.map((pan) => {
+  if (!officialTransferConfig.pan_rules[pan]) {
+    officialTransferConfig.pan_rules[pan] = { enabled: false, level1_amount: 0.2, level2_amount: 0.05 }
+  }
+  return { pan, rule: officialTransferConfig.pan_rules[pan] }
+}))
+
 const coBuildConfig = reactive<CoBuildConfig>({
   enabled: true,
   announcement_title: '早期共建用户招募中，百万积分奖励池等你来拿',
@@ -299,12 +481,87 @@ const coBuildConfig = reactive<CoBuildConfig>({
   footer_slogan: '让每一份资源，都有价值。',
 })
 
+const publicVisibilityConfig = reactive<NetdiskPublicVisibilityConfig>({
+  miniapp_public_mode: 'review_safe',
+  safe_frontend_categories: ['AI工具', '办公资料', '自媒体素材', '学习资料', '软件工具'],
+  hidden_categories: ['影视剧'],
+  h5_base_url: 'https://h5.example.com',
+  request_default_bounty_points: 10,
+  request_requires_audit: true,
+  show_media_in_miniapp: false,
+  hidden_categories_when_closed: ['影视剧'],
+  featured_category_when_closed: 'AI工具',
+  note: '审核期默认关闭影视剧展示；开启后小程序公开列表、详情和今日精选可展示影视剧。',
+})
+
+const frontendCategoryConfig = reactive<NetdiskFrontendCategoriesConfig>({
+  categories: [
+    '自媒体素材',
+    '编程课程',
+    'AI工具',
+    '电商运营',
+    '学习办公',
+    '养生健康',
+    '软件工具',
+    '本地生活',
+    '其他资源',
+  ],
+})
+
+const normalizeCategoryList = (items: string[]) => Array.from(new Set(
+  (items || []).map((item) => String(item || '').trim()).filter(Boolean),
+))
+
+const defaultFrontendCategoryOptions = [
+  '影视剧',
+  '自媒体素材',
+  '编程课程',
+  'AI工具',
+  '电商运营',
+  '学习办公',
+  '养生健康',
+  '软件工具',
+  '本地生活',
+  '其他资源',
+]
+
+const frontendCategoryOptions = computed(() => normalizeCategoryList([
+  ...defaultFrontendCategoryOptions,
+]))
+
+const visibilityCategoryOptions = computed(() => normalizeCategoryList([
+  ...defaultFrontendCategoryOptions,
+  ...frontendCategoryConfig.categories,
+  ...publicVisibilityConfig.safe_frontend_categories,
+  ...publicVisibilityConfig.hidden_categories,
+  ...publicVisibilityConfig.hidden_categories_when_closed,
+  publicVisibilityConfig.featured_category_when_closed,
+]))
+
 const loadGenericConfigs = async () => {
-  const data = await getAdminConfigs()
+  const [data, publicVisibility, frontendCategories] = await Promise.all([
+    getAdminConfigs(),
+    getAdminConfigs('netdisk_public_visibility_config'),
+    getNetdiskFrontendCategories(),
+  ])
   if (data?.stage2_points_config) Object.assign(pointsConfig, data.stage2_points_config)
   if (data?.stage2_task_config) Object.assign(taskConfig, data.stage2_task_config)
   if (data?.commission_settings) Object.assign(commissionConfig, data.commission_settings)
+  if (data?.netdisk_official_transfer_config) {
+    Object.assign(officialTransferConfig, data.netdisk_official_transfer_config)
+    officialPanNames.forEach((pan) => {
+      officialTransferConfig.pan_rules[pan] = {
+        enabled: Boolean(officialTransferConfig.pan_rules?.[pan]?.enabled),
+        level1_amount: Number(officialTransferConfig.pan_rules?.[pan]?.level1_amount ?? officialTransferConfig.default_level1_amount ?? 0.2),
+        level2_amount: Number(officialTransferConfig.pan_rules?.[pan]?.level2_amount ?? officialTransferConfig.default_level2_amount ?? 0.05),
+      }
+    })
+  }
   if (data?.co_build_config) Object.assign(coBuildConfig, data.co_build_config)
+  if (publicVisibility) Object.assign(publicVisibilityConfig, publicVisibility)
+  if (Array.isArray(frontendCategories?.categories)) {
+    frontendCategoryConfig.categories = normalizeCategoryList(frontendCategories.categories)
+  }
 }
 
 const loadData = async () => {
@@ -319,6 +576,18 @@ const loadData = async () => {
     ElMessage.error(error.message || '配置加载失败，请确认后端 8000 已启动')
   } finally {
     loading.value = false
+  }
+}
+
+const loadOfficialAccessRecords = async () => {
+  loadingOfficialAccess.value = true
+  try {
+    const data = await getNetdiskNewOfficialAccessRecords({ page: 1, page_size: 20 })
+    officialAccessRecords.value = data?.list || []
+  } catch (error: any) {
+    ElMessage.error(error.message || '新官方记录加载失败')
+  } finally {
+    loadingOfficialAccess.value = false
   }
 }
 
@@ -404,6 +673,82 @@ const saveCommission = async () => {
   }
 }
 
+const normalizeOfficialTransferConfig = (): NetdiskOfficialTransferConfig => ({
+  enabled: Boolean(officialTransferConfig.enabled),
+  settlement_mode: 'record_only',
+  default_level1_amount: Number(officialTransferConfig.default_level1_amount || 0),
+  default_level2_amount: Number(officialTransferConfig.default_level2_amount || 0),
+  pan_rules: Object.fromEntries(officialPanNames.map((pan) => {
+    const rule = officialTransferConfig.pan_rules[pan] || { enabled: false, level1_amount: 0, level2_amount: 0 }
+    return [pan, {
+      enabled: Boolean(rule.enabled),
+      level1_amount: Number(rule.level1_amount || 0),
+      level2_amount: Number(rule.level2_amount || 0),
+    }]
+  })),
+  note: officialTransferConfig.note || '测试期只记录新官方资源获取行为，不发放权益金。',
+})
+
+const saveOfficialTransfer = async () => {
+  savingOfficialTransfer.value = true
+  try {
+    await updateAdminConfig('netdisk_official_transfer_config', normalizeOfficialTransferConfig())
+    ElMessage.success('新官方收益配置已保存，当前仍只记录不发放')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingOfficialTransfer.value = false
+  }
+}
+
+const normalizePublicVisibilityConfig = (): NetdiskPublicVisibilityConfig => ({
+  miniapp_public_mode: publicVisibilityConfig.miniapp_public_mode || 'review_safe',
+  safe_frontend_categories: normalizeCategoryList(publicVisibilityConfig.safe_frontend_categories || ['AI工具']),
+  hidden_categories: normalizeCategoryList(publicVisibilityConfig.hidden_categories || publicVisibilityConfig.hidden_categories_when_closed || ['影视剧']),
+  h5_base_url: String(publicVisibilityConfig.h5_base_url || 'https://h5.example.com').replace(/\/$/, ''),
+  request_default_bounty_points: Math.max(5, Math.min(50, Number(publicVisibilityConfig.request_default_bounty_points || 10))),
+  request_requires_audit: Boolean(publicVisibilityConfig.request_requires_audit),
+  show_media_in_miniapp: Boolean(publicVisibilityConfig.show_media_in_miniapp),
+  hidden_categories_when_closed: Array.isArray(publicVisibilityConfig.hidden_categories_when_closed)
+    ? normalizeCategoryList(publicVisibilityConfig.hidden_categories_when_closed)
+    : ['影视剧'],
+  featured_category_when_closed: publicVisibilityConfig.featured_category_when_closed || 'AI工具',
+  note: publicVisibilityConfig.note || '审核期默认关闭影视剧展示。',
+})
+
+const saveFrontendCategories = async () => {
+  const categories = normalizeCategoryList(frontendCategoryConfig.categories)
+  savingFrontendCategories.value = true
+  try {
+    const data = await updateNetdiskFrontendCategories(categories)
+    frontendCategoryConfig.categories = normalizeCategoryList(data?.categories || categories)
+    ElMessage.success('前端分类标签已保存')
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingFrontendCategories.value = false
+  }
+}
+
+const savePublicVisibility = async () => {
+  savingPublicVisibility.value = true
+  try {
+    const categories = normalizeCategoryList(frontendCategoryConfig.categories)
+    const [frontendCategories] = await Promise.all([
+      updateNetdiskFrontendCategories(categories),
+      updateAdminConfig('netdisk_public_visibility_config', normalizePublicVisibilityConfig()),
+    ])
+    frontendCategoryConfig.categories = normalizeCategoryList(frontendCategories?.categories || categories)
+    ElMessage.success('前台展示规则和标签已保存，后端已立即生效')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingPublicVisibility.value = false
+  }
+}
+
 const normalizeCoBuildConfig = (): CoBuildConfig => ({
   enabled: Boolean(coBuildConfig.enabled),
   announcement_title: coBuildConfig.announcement_title || '早期共建用户招募中，百万积分奖励池等你来拿',
@@ -433,7 +778,10 @@ const saveCoBuild = async () => {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  loadOfficialAccessRecords()
+})
 </script>
 
 <style scoped>

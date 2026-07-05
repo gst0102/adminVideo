@@ -111,6 +111,38 @@ export interface CoBuildConfig {
   footer_slogan: string
 }
 
+export interface NetdiskPublicVisibilityConfig {
+  miniapp_public_mode: 'review_safe' | 'normal'
+  safe_frontend_categories: string[]
+  hidden_categories: string[]
+  h5_base_url: string
+  request_default_bounty_points: number
+  request_requires_audit: boolean
+  show_media_in_miniapp: boolean
+  hidden_categories_when_closed: string[]
+  featured_category_when_closed: string
+  note: string
+}
+
+export interface NetdiskFrontendCategoriesConfig {
+  categories: string[]
+}
+
+export interface NetdiskOfficialTransferPanRule {
+  enabled: boolean
+  level1_amount: number
+  level2_amount: number
+}
+
+export interface NetdiskOfficialTransferConfig {
+  enabled: boolean
+  settlement_mode: 'record_only' | 'grant_equity'
+  default_level1_amount: number
+  default_level2_amount: number
+  pan_rules: Record<string, NetdiskOfficialTransferPanRule>
+  note: string
+}
+
 export interface AdminUserListParams {
   keyword?: string
   is_vip?: boolean
@@ -393,6 +425,14 @@ export async function deleteNetdiskRequest(id: string, note = ''): Promise<any> 
   return http.post(`/admin/netdisk/requests/${id}/delete`, { note })
 }
 
+export async function approveNetdiskRequest(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/requests/${id}/approve`, { note })
+}
+
+export async function rejectNetdiskRequest(id: string, note = ''): Promise<any> {
+  return http.post(`/admin/netdisk/requests/${id}/reject`, { note })
+}
+
 export async function getNetdiskResourceSubscriptions(
   params: NetdiskListParams & { wx_subscribe_status?: string } = {},
 ): Promise<any> {
@@ -459,6 +499,22 @@ export async function updateAdminConfig(type: string, configData: Record<string,
     type,
     config_data: configData,
   })
+}
+
+export async function getNetdiskFrontendCategories(): Promise<NetdiskFrontendCategoriesConfig> {
+  return http.get('/admin/netdisk/frontend-categories')
+}
+
+export async function updateNetdiskFrontendCategories(categories: string[]): Promise<NetdiskFrontendCategoriesConfig> {
+  return http.put('/admin/netdisk/frontend-categories', { categories })
+}
+
+export async function getNetdiskTransferTasks(params: NetdiskListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/transfer-tasks', { params })
+}
+
+export async function getNetdiskNewOfficialAccessRecords(params: NetdiskListParams = {}): Promise<any> {
+  return http.get('/admin/netdisk/new-official-access-records', { params })
 }
 
 export default http
